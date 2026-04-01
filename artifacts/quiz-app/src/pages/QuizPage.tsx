@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Quiz, WordEntry, QuizAnswer, QuizResult } from "../types";
 import { shuffle, nanoid } from "../lib/utils";
 import { checkAnswer, normalizeArabic, splitMeanings } from "../lib/arabic";
@@ -17,30 +17,49 @@ interface QuizQuestion {
   correctChoiceLabel?: string;
 }
 
-/**
- * Build display label for a word's meanings:
- * e.g. ["عذر", "مبرر"] → "عذر / مبرر"
- */
+interface QuizSession {
+  quizId: string;
+  questions: QuizQuestion[];
+  currentIdx: number;
+  answers: QuizAnswer[];
+}
+
+function getSessionKey(quizId: string) {
+  return `quiz_progress_${quizId}`;
+}
+
+function saveQuizSession(quizId: string, session: QuizSession) {
+  try {
+    sessionStorage.setItem(getSessionKey(quizId), JSON.stringify(session));
+  } catch {}
+}
+
+function loadQuizSession(quizId: string): QuizSession | null {
+  try {
+    const raw = sessionStorage.getItem(getSessionKey(quizId));
+    if (!raw) return null;
+    return JSON.parse(raw) as QuizSession;
+  } catch {
+    return null;
+  }
+}
+
+function clearQuizSession(quizId: string) {
+  try {
+    sessionStorage.removeItem(getSessionKey(quizId));
+  } catch {}
+}
+
 function meaningLabel(meanings: string[]): string {
   return meanings.join(" / ");
 }
 
-/**
- * Check whether two word entries share any semantically equivalent meaning
- * (after normalization). Used to avoid putting synonymous choices together.
- */
 function sharesMeaning(a: WordEntry, b: WordEntry): boolean {
   const aNorm = a.meanings.flatMap((m) => splitMeanings(m)).map(normalizeArabic);
   const bNorm = b.meanings.flatMap((m) => splitMeanings(m)).map(normalizeArabic);
   return aNorm.some((na) => na && bNorm.includes(na));
 }
 
-/**
- * Build MCQ questions with full anti-repetition logic:
- * - Wrong choices are drawn from all available words randomly
- * - Choices that appeared in the previous question are deprioritized
- * - Similar meanings (synonyms) are kept together as one choice, not split
- */
 function buildMcqQuestions(
   selected: WordEntry[],
   allWords: WordEntry[],
@@ -52,7 +71,6 @@ function buildMcqQuestions(
   for (const word of selected) {
     const correctLabel = meaningLabel(word.meanings);
 
-    // Pool: all OTHER words that don't share any meaning with this word
     const distractorPool = allWords.filter(
       (w) => w.id !== word.id && !sharesMeaning(w, word)
     );
@@ -61,7 +79,6 @@ function buildMcqQuestions(
     const usedLabels = new Set<string>([correctLabel]);
     const wrongs: string[] = [];
 
-    // First pass: prefer distractors NOT used in the previous question
     for (const w of shuffledPool) {
       if (wrongs.length >= 3) break;
       const label = meaningLabel(w.meanings);
@@ -71,7 +88,6 @@ function buildMcqQuestions(
       }
     }
 
-    // Second pass: fill remaining slots from any available distractor
     if (wrongs.length < 3) {
       for (const w of shuffledPool) {
         if (wrongs.length >= 3) break;
@@ -86,7 +102,6 @@ function buildMcqQuestions(
     let choices = [correctLabel, ...wrongs];
     if (shuffleChoices) choices = shuffle(choices);
 
-    // Track all labels used in this question for the next iteration
     prevChoiceLabels = new Set(choices);
 
     questions.push({ word, choices, correctChoiceLabel: correctLabel });
@@ -103,21 +118,43 @@ export default function QuizPage({ quiz, onBack, onFinish }: QuizPageProps) {
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [currentCorrect, setCurrentCorrect] = useState(false);
+  const initialized = useRef(false);
 
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
+    const saved = loadQuizSession(quiz.id);
+    if (saved && saved.questions.length > 0) {
+      setQuestions(saved.questions);
+      setCurrentIdx(saved.currentIdx);
+      setAnswers(saved.answers);
+      return;
+    }
+
     let wordPool = [...quiz.words];
     if (quiz.settings.shuffleQuestions) wordPool = shuffle(wordPool);
     const count = Math.min(quiz.settings.wordCount, wordPool.length);
     const selected = wordPool.slice(0, count);
 
+    let built: QuizQuestion[];
     if (quiz.settings.type === "mcq") {
-      setQuestions(
-        buildMcqQuestions(selected, quiz.words, quiz.settings.shuffleChoices)
-      );
+      built = buildMcqQuestions(selected, quiz.words, quiz.settings.shuffleChoices);
     } else {
-      setQuestions(selected.map((word) => ({ word })));
+      built = selected.map((word) => ({ word }));
     }
+    setQuestions(built);
   }, [quiz]);
+
+  useEffect(() => {
+    if (questions.length === 0) return;
+    saveQuizSession(quiz.id, {
+      quizId: quiz.id,
+      questions,
+      currentIdx,
+      answers,
+    });
+  }, [quiz.id, questions, currentIdx, answers]);
 
   const currentQ = questions[currentIdx];
 
@@ -154,6 +191,7 @@ export default function QuizPage({ quiz, onBack, onFinish }: QuizPageProps) {
     setSelectedChoice(null);
 
     if (currentIdx + 1 >= questions.length) {
+      clearQuizSession(quiz.id);
       finishQuiz(currentAnswers);
     } else {
       setCurrentIdx((i) => i + 1);
@@ -188,7 +226,6 @@ export default function QuizPage({ quiz, onBack, onFinish }: QuizPageProps) {
   return (
     <div className="min-h-screen bg-background text-foreground" dir="rtl">
       <div className="max-w-2xl mx-auto px-4 py-6 pb-24 sm:py-8 sm:pb-8">
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <button
             onClick={onBack}
@@ -202,7 +239,6 @@ export default function QuizPage({ quiz, onBack, onFinish }: QuizPageProps) {
           </span>
         </div>
 
-        {/* Progress */}
         <div className="w-full h-2 bg-muted rounded-full mb-8 overflow-hidden">
           <div
             className="h-full bg-primary rounded-full transition-all duration-500"
@@ -210,7 +246,6 @@ export default function QuizPage({ quiz, onBack, onFinish }: QuizPageProps) {
           />
         </div>
 
-        {/* Question */}
         <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 mb-6 text-center">
           <p className="text-sm text-muted-foreground mb-4">ما معنى الكلمة التالية؟</p>
           <h2 className="text-3xl sm:text-4xl font-bold text-foreground" dir="ltr">
@@ -218,7 +253,6 @@ export default function QuizPage({ quiz, onBack, onFinish }: QuizPageProps) {
           </h2>
         </div>
 
-        {/* MCQ Choices */}
         {quiz.settings.type === "mcq" && currentQ.choices && (
           <div className="space-y-3">
             {currentQ.choices.map((choice, idx) => {
@@ -280,7 +314,6 @@ export default function QuizPage({ quiz, onBack, onFinish }: QuizPageProps) {
           </div>
         )}
 
-        {/* Essay Input */}
         {quiz.settings.type === "essay" && (
           <form
             onSubmit={(e) => {
@@ -319,7 +352,6 @@ export default function QuizPage({ quiz, onBack, onFinish }: QuizPageProps) {
           </form>
         )}
 
-        {/* Immediate Feedback */}
         {showFeedback && quiz.settings.gradingMode === "immediate" && (
           <div
             className={cn(

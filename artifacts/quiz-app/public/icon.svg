@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#3b82f6"/>
+  <!-- Book body -->
+  <rect x="104" y="96" width="304" height="320" rx="20" fill="white" opacity="0.15"/>
+  <rect x="116" y="96" width="12" height="320" rx="6" fill="white" opacity="0.3"/>
+  <!-- Lines representing text -->
+  <rect x="148" y="148" width="200" height="14" rx="7" fill="white"/>
+  <rect x="148" y="178" width="160" height="10" rx="5" fill="white" opacity="0.6"/>
+  <!-- Check item 1 -->
+  <circle cx="160" cy="252" r="18" fill="white" opacity="0.95"/>
+  <polyline points="151,252 158,260 170,243" fill="none" stroke="#3b82f6" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="190" y="245" width="130" height="12" rx="6" fill="white" opacity="0.85"/>
+  <!-- Check item 2 -->
+  <circle cx="160" cy="302" r="18" fill="white" opacity="0.95"/>
+  <polyline points="151,302 158,310 170,293" fill="none" stroke="#3b82f6" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="190" y="295" width="110" height="12" rx="6" fill="white" opacity="0.85"/>
+  <!-- Check item 3 -->
+  <circle cx="160" cy="352" r="18" fill="white" opacity="0.95"/>
+  <polyline points="151,352 158,360 170,343" fill="none" stroke="#3b82f6" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="190" y="345" width="145" height="12" rx="6" fill="white" opacity="0.85"/>
+</svg>

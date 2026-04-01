@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Quiz, QuizResult } from "./types";
-import { saveResult } from "./lib/storage";
+import { saveResult, getQuizById } from "./lib/storage";
 import { ThemeProvider } from "./context/ThemeContext";
 import ThemePanel from "./components/ThemePanel";
 import HomePage from "./pages/HomePage";
@@ -17,25 +17,77 @@ type Page =
   | { name: "results"; result: QuizResult; quiz: Quiz }
   | { name: "import"; encoded?: string; encodedAll?: string };
 
-export default function App() {
-  const [page, setPage] = useState<Page>({ name: "home" });
+const SESSION_KEY = "quiz_app_current_page";
 
-  // Check URL for import params on mount
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const single = params.get("import");
-    const all = params.get("importAll");
-    if (single) {
-      setPage({ name: "import", encoded: single });
-    } else if (all) {
-      setPage({ name: "import", encodedAll: all });
+type SavedSession =
+  | { page: "home" }
+  | { page: "create" }
+  | { page: "edit"; quizId: string }
+  | { page: "quiz"; quizId: string }
+  | { page: "import" };
+
+function saveSession(page: Page) {
+  try {
+    if (page.name === "quiz") {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ page: "quiz", quizId: page.quiz.id }));
+    } else if (page.name === "edit") {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ page: "edit", quizId: page.quiz.id }));
+    } else if (page.name === "create") {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ page: "create" }));
+    } else if (page.name === "import") {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ page: "import" }));
+    } else {
+      sessionStorage.removeItem(SESSION_KEY);
     }
-  }, []);
+  } catch {}
+}
+
+function restoreSession(): Page | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as SavedSession;
+    if (data.page === "quiz") {
+      const quiz = getQuizById(data.quizId);
+      if (quiz) return { name: "quiz", quiz };
+    } else if (data.page === "edit") {
+      const quiz = getQuizById(data.quizId);
+      if (quiz) return { name: "edit", quiz };
+    } else if (data.page === "create") {
+      return { name: "create" };
+    } else if (data.page === "import") {
+      return { name: "import" };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function getInitialPage(): Page {
+  const params = new URLSearchParams(window.location.search);
+  const single = params.get("import");
+  const all = params.get("importAll");
+  if (single) return { name: "import", encoded: single };
+  if (all) return { name: "import", encodedAll: all };
+
+  const restored = restoreSession();
+  if (restored) return restored;
+
+  return { name: "home" };
+}
+
+export default function App() {
+  const [page, setPage] = useState<Page>(getInitialPage);
+
+  useEffect(() => {
+    saveSession(page);
+  }, [page]);
 
   function goHome() {
-    // Clear import params from URL
     const url = window.location.pathname;
     window.history.replaceState({}, "", url);
+    sessionStorage.removeItem(SESSION_KEY);
     setPage({ name: "home" });
   }
 
