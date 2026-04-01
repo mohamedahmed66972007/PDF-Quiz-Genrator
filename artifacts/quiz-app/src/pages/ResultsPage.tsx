@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { QuizResult, QuizAnswer } from "../types";
-import { loadResultsByQuizId } from "../lib/storage";
 import { cn } from "../lib/utils";
 import {
   Check,
@@ -10,9 +9,6 @@ import {
   ChevronDown,
   ChevronUp,
   Eye,
-  History,
-  Clock,
-  Trophy,
 } from "lucide-react";
 
 interface ResultsPageProps {
@@ -21,30 +17,11 @@ interface ResultsPageProps {
   onHome: () => void;
 }
 
-function formatDate(ts: number): string {
-  return new Date(ts).toLocaleString("ar-EG", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-export default function ResultsPage({
-  result,
-  onRetry,
-  onHome,
-}: ResultsPageProps) {
+export default function ResultsPage({ result, onRetry, onHome }: ResultsPageProps) {
   const [showWrongOnly, setShowWrongOnly] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
 
   const wrongAnswers = result.answers.filter((a) => !a.correct);
   const displayAnswers = showWrongOnly ? wrongAnswers : result.answers;
-
-  // Load all previous attempts for this quiz (excluding current run)
-  const history = loadResultsByQuizId(result.quizId).filter(
-    (r) => r.completedAt !== result.completedAt
-  );
 
   const scoreColor =
     result.score >= 80
@@ -60,138 +37,73 @@ export default function ResultsPage({
       ? "bg-yellow-50 dark:bg-yellow-950/50 border-yellow-200 dark:border-yellow-800"
       : "bg-destructive/10 border-destructive/30";
 
+  const message =
+    result.score === 100
+      ? "ممتاز! إجابات مثالية 🎉"
+      : result.score >= 80
+      ? "أحسنت! أداء رائع"
+      : result.score >= 60
+      ? "جيد! يمكنك التحسن أكثر"
+      : "حاول مرة أخرى للتحسن";
+
   return (
     <div className="min-h-screen bg-background text-foreground" dir="rtl">
-      <div className="max-w-2xl mx-auto px-4 py-8 pb-24 sm:pb-8">
+      <div className="max-w-2xl mx-auto px-4 py-6 pb-24 sm:pb-8">
 
         {/* Score card */}
-        <div className={cn("rounded-2xl border p-6 sm:p-8 text-center mb-6", scoreBg)}>
-          <h1 className="text-lg sm:text-xl font-bold mb-1 text-foreground">
+        <div className={cn("rounded-3xl border p-6 text-center mb-5", scoreBg)}>
+          <h1 className="text-base font-semibold text-foreground/70 mb-1">
             {result.quizName}
           </h1>
-          <div className={cn("text-6xl sm:text-7xl font-black my-4", scoreColor)}>
+          <div className={cn("text-7xl font-black my-3", scoreColor)}>
             {result.score}%
           </div>
-          <div className="flex items-center justify-center gap-4 sm:gap-6 text-sm flex-wrap">
+          <p className="text-sm font-medium text-foreground mb-3">{message}</p>
+          <div className="flex items-center justify-center gap-6 text-sm">
             <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
-              <Check size={16} />
-              <span className="font-medium">{result.correctCount} صحيح</span>
+              <Check size={15} strokeWidth={2.5} />
+              <span className="font-semibold">{result.correctCount} صحيح</span>
             </div>
+            <div className="w-px h-4 bg-border" />
             <div className="flex items-center gap-1.5 text-destructive">
-              <X size={16} />
-              <span className="font-medium">
+              <X size={15} strokeWidth={2.5} />
+              <span className="font-semibold">
                 {result.totalQuestions - result.correctCount} خطأ
               </span>
             </div>
-            <div className="text-muted-foreground">
-              من {result.totalQuestions} سؤال
-            </div>
+            <div className="w-px h-4 bg-border" />
+            <span className="text-muted-foreground">{result.totalQuestions} سؤال</span>
           </div>
-          <p className="mt-3 text-base font-medium text-foreground">
-            {result.score === 100
-              ? "ممتاز! إجابات مثالية"
-              : result.score >= 80
-              ? "أحسنت! أداء رائع"
-              : result.score >= 60
-              ? "جيد! يمكنك التحسن أكثر"
-              : "حاول مرة أخرى للتحسن"}
-          </p>
         </div>
 
-        {/* Action buttons */}
+        {/* Actions */}
         <div className="flex gap-3 mb-5">
           <button
             onClick={onHome}
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-border bg-card hover:bg-accent transition-colors font-medium text-sm"
+            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-border bg-card hover:bg-accent transition-colors font-semibold text-sm"
           >
-            <Home size={18} />
+            <Home size={17} />
             الرئيسية
           </button>
           <button
             onClick={onRetry}
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity font-medium text-sm"
+            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity font-semibold text-sm"
           >
-            <RotateCcw size={18} />
+            <RotateCcw size={17} />
             إعادة الاختبار
           </button>
         </div>
 
-        {/* ── Previous attempts — always visible ── */}
-        <div className="mb-5 bg-card border border-border rounded-xl overflow-hidden">
-          <button
-            onClick={() => setShowHistory((v) => !v)}
-            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors"
-          >
-            <History size={16} className="text-primary flex-shrink-0" />
-            <span className="font-semibold text-sm flex-1 text-right">
-              المحاولات السابقة
-            </span>
-            {history.length > 0 ? (
-              <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
-                {history.length}
-              </span>
-            ) : (
-              <span className="text-xs text-muted-foreground">لا توجد بعد</span>
-            )}
-            {showHistory ? (
-              <ChevronUp size={15} className="text-muted-foreground flex-shrink-0" />
-            ) : (
-              <ChevronDown size={15} className="text-muted-foreground flex-shrink-0" />
-            )}
-          </button>
-
-          {showHistory && (
-            <div className="border-t border-border">
-              {history.length === 0 ? (
-                <div className="px-4 py-6 text-center">
-                  <Trophy size={28} className="text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    هذه أول محاولة لك في هذا الاختبار!
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    ستظهر محاولاتك هنا عند إعادة الاختبار
-                  </p>
-                </div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {history.map((r, i) => {
-                    const hColor =
-                      r.score >= 80
-                        ? "text-green-600 dark:text-green-400"
-                        : r.score >= 60
-                        ? "text-yellow-600 dark:text-yellow-400"
-                        : "text-destructive";
-                    return (
-                      <div key={i} className="flex items-center gap-3 px-4 py-3">
-                        <Clock size={13} className="text-muted-foreground flex-shrink-0" />
-                        <span className="text-xs text-muted-foreground flex-1">
-                          {formatDate(r.completedAt)}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {r.correctCount}/{r.totalQuestions}
-                        </span>
-                        <span className={cn("font-bold text-sm w-12 text-left", hColor)}>
-                          {r.score}%
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Wrong answers filter */}
+        {/* Filter */}
         {wrongAnswers.length > 0 && (
-          <div className="mb-4 flex gap-2">
+          <div className="flex gap-2 mb-4">
             <button
               onClick={() => setShowWrongOnly(false)}
               className={cn(
-                "flex-1 py-2 rounded-lg border text-sm font-medium transition-colors",
+                "flex-1 py-2.5 rounded-xl border text-sm font-semibold transition-colors",
                 !showWrongOnly
                   ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-card hover:bg-accent"
+                  : "border-border bg-card hover:bg-accent text-foreground"
               )}
             >
               جميع الأسئلة ({result.answers.length})
@@ -199,22 +111,22 @@ export default function ResultsPage({
             <button
               onClick={() => setShowWrongOnly(true)}
               className={cn(
-                "flex-1 py-2 rounded-lg border text-sm font-medium transition-colors",
+                "flex-1 py-2.5 rounded-xl border text-sm font-semibold transition-colors",
                 showWrongOnly
                   ? "border-destructive bg-destructive/10 text-destructive"
-                  : "border-border bg-card hover:bg-accent"
+                  : "border-border bg-card hover:bg-accent text-foreground"
               )}
             >
               <Eye className="inline ml-1" size={14} />
-              الأخطاء فقط ({wrongAnswers.length})
+              الأخطاء ({wrongAnswers.length})
             </button>
           </div>
         )}
 
-        {/* Detailed answers — all open by default */}
-        <div className="space-y-3">
+        {/* Answer cards */}
+        <div className="space-y-2.5">
           {displayAnswers.map((answer, idx) => (
-            <AnswerCard key={`${answer.wordId}-${idx}`} answer={answer} idx={idx} />
+            <AnswerCard key={`${answer.wordId}-${idx}`} answer={answer} />
           ))}
         </div>
       </div>
@@ -222,13 +134,13 @@ export default function ResultsPage({
   );
 }
 
-function AnswerCard({ answer, idx }: { answer: QuizAnswer; idx: number }) {
+function AnswerCard({ answer }: { answer: QuizAnswer }) {
   const [open, setOpen] = useState(true);
 
   return (
     <div
       className={cn(
-        "rounded-xl border overflow-hidden",
+        "rounded-2xl border overflow-hidden",
         answer.correct
           ? "border-green-200 dark:border-green-800"
           : "border-destructive/40"
@@ -237,7 +149,7 @@ function AnswerCard({ answer, idx }: { answer: QuizAnswer; idx: number }) {
       <button
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "w-full flex items-center gap-3 p-3 text-right",
+          "w-full flex items-center gap-3 px-4 py-3 text-right",
           answer.correct
             ? "bg-green-50 dark:bg-green-950/30"
             : "bg-destructive/5"
@@ -245,35 +157,29 @@ function AnswerCard({ answer, idx }: { answer: QuizAnswer; idx: number }) {
       >
         <div
           className={cn(
-            "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0",
-            answer.correct ? "bg-green-500 text-white" : "bg-destructive text-white"
+            "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-white",
+            answer.correct ? "bg-green-500" : "bg-destructive"
           )}
         >
           {answer.correct ? <Check size={13} /> : <X size={13} />}
         </div>
-        <span className="font-medium text-foreground flex-1" dir="ltr">
+        <span className="font-semibold text-foreground flex-1" dir="ltr">
           {answer.wordText}
         </span>
         {!open && !answer.correct && (
-          <span className="text-xs text-muted-foreground truncate max-w-[100px] sm:max-w-none">
+          <span className="text-xs text-muted-foreground truncate max-w-[100px] sm:max-w-[180px]">
             {answer.userAnswer || "(بلا إجابة)"}
           </span>
         )}
-        {open
-          ? <ChevronUp size={15} className="flex-shrink-0 text-muted-foreground" />
-          : <ChevronDown size={15} className="flex-shrink-0 text-muted-foreground" />
-        }
+        {open ? (
+          <ChevronUp size={15} className="flex-shrink-0 text-muted-foreground" />
+        ) : (
+          <ChevronDown size={15} className="flex-shrink-0 text-muted-foreground" />
+        )}
       </button>
 
       {open && (
-        <div
-          className="p-3 border-t space-y-1.5"
-          style={{
-            borderColor: answer.correct
-              ? "rgb(187 247 208 / 0.5)"
-              : "rgb(239 68 68 / 0.2)",
-          }}
-        >
+        <div className="px-4 py-3 space-y-1.5 border-t border-border/40">
           {!answer.correct && (
             <div className="flex gap-2 text-sm">
               <span className="text-muted-foreground flex-shrink-0">إجابتك:</span>
