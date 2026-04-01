@@ -7,6 +7,11 @@ html,
 body {
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
+  background-color: hsl(var(--background));
+}
+
+body {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 @theme inline {

@@ -640,6 +640,14 @@ function applyTheme(theme: AppTheme) {
   } else {
     root.classList.remove("dark");
   }
+
+  const primaryHsl = vars["--primary"];
+  if (primaryHsl) {
+    const color = `hsl(${primaryHsl})`;
+    document
+      .querySelectorAll('meta[name="theme-color"]')
+      .forEach((el) => el.setAttribute("content", color));
+  }
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
