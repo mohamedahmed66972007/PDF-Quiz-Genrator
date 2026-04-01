@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Quiz } from "../types";
-import { loadQuizzes, deleteQuiz } from "../lib/storage";
+import { loadQuizzes, deleteQuiz, loadResultsByQuizId } from "../lib/storage";
 import { encodeQuizToUrl, encodeAllQuizzesToUrl, copyToClipboard } from "../lib/share";
 import { cn } from "../lib/utils";
 import {
@@ -111,16 +111,25 @@ export default function HomePage({
         ) : (
           <>
             <div className="grid gap-4">
-              {quizzes.map((quiz) => (
+              {quizzes.map((quiz) => {
+                const lastResult = loadResultsByQuizId(quiz.id)[0];
+                const scoreColor = !lastResult
+                  ? ""
+                  : lastResult.score >= 80
+                  ? "text-green-600 dark:text-green-400"
+                  : lastResult.score >= 60
+                  ? "text-yellow-600 dark:text-yellow-400"
+                  : "text-destructive";
+                return (
                 <div
                   key={quiz.id}
-                  className="bg-card border border-border rounded-xl p-5 flex items-center gap-4 hover:border-primary/50 transition-colors"
+                  className="bg-card border border-border rounded-xl p-4 sm:p-5 flex items-center gap-3 sm:gap-4 hover:border-primary/50 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-foreground text-lg truncate">
+                    <h3 className="font-semibold text-foreground text-base sm:text-lg truncate">
                       {quiz.name}
                     </h3>
-                    <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2 mt-1 text-xs sm:text-sm text-muted-foreground flex-wrap">
                       <span>{quiz.words.length} كلمة</span>
                       <span>•</span>
                       <span>
@@ -133,6 +142,17 @@ export default function HomePage({
                         {new Date(quiz.updatedAt).toLocaleDateString("ar")}
                       </span>
                     </div>
+                    {lastResult && (
+                      <div className="mt-1.5 flex items-center gap-1.5">
+                        <span className="text-xs text-muted-foreground">آخر نتيجة:</span>
+                        <span className={cn("text-xs font-bold", scoreColor)}>
+                          {lastResult.score}%
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          ({lastResult.correctCount}/{lastResult.totalQuestions})
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
@@ -168,7 +188,8 @@ export default function HomePage({
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             {quizzes.length > 1 && (
