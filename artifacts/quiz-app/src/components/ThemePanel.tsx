@@ -31,7 +31,6 @@ export default function ThemePanel() {
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const colorPickerRef = useRef<HTMLDivElement>(null);
 
-  // Close picker when clicking outside
   useEffect(() => {
     if (!colorPickerOpen) return;
     function handleOutside(e: MouseEvent) {
@@ -47,12 +46,16 @@ export default function ThemePanel() {
   }, [colorPickerOpen]);
 
   return (
-    <div className="fixed bottom-4 left-4 z-50 flex flex-col-reverse gap-2 sm:flex-col sm:top-4 sm:bottom-auto">
+    /*
+     * Mobile: fixed bottom-right, row layout (right = RTL start side)
+     * Desktop (sm+): fixed top-left, column layout
+     */
+    <div className="fixed bottom-4 right-4 z-50 flex flex-row-reverse gap-2 sm:flex-col sm:bottom-auto sm:top-4 sm:right-auto sm:left-4">
       {/* Mode toggle */}
       <button
         onClick={toggleMode}
         title={theme.mode === "dark" ? "وضع نهاري" : "وضع ليلي"}
-        className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center transition-colors shadow-sm active:scale-95"
+        className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center transition-colors shadow-md active:scale-95"
       >
         {theme.mode === "dark" ? (
           <Sun size={18} className="text-yellow-400" />
@@ -67,7 +70,7 @@ export default function ThemePanel() {
           onClick={() => setColorPickerOpen((v) => !v)}
           title="تغيير اللون"
           className={cn(
-            "w-10 h-10 rounded-xl bg-card border flex items-center justify-center transition-colors shadow-sm active:scale-95",
+            "w-10 h-10 rounded-xl bg-card border flex items-center justify-center transition-colors shadow-md active:scale-95",
             colorPickerOpen ? "border-primary bg-primary/10" : "border-border"
           )}
         >
@@ -77,11 +80,11 @@ export default function ThemePanel() {
         {colorPickerOpen && (
           <div
             className="
-              absolute left-12 bottom-0
-              sm:left-12 sm:bottom-auto sm:top-0
+              absolute z-50
               flex flex-col gap-1.5
-              bg-card border border-border rounded-xl p-2 shadow-lg min-w-[140px]
-              z-50
+              bg-card border border-border rounded-xl p-2 shadow-xl min-w-[144px]
+              bottom-12 right-0
+              sm:bottom-auto sm:top-0 sm:right-auto sm:left-12
             "
           >
             {(COLORS as ThemeColor[]).map((c) => (
@@ -95,7 +98,7 @@ export default function ThemePanel() {
                   "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-right w-full",
                   theme.color === c
                     ? "bg-primary/10 text-primary"
-                    : "active:bg-accent text-foreground sm:hover:bg-accent"
+                    : "text-foreground sm:hover:bg-accent active:bg-accent"
                 )}
               >
                 <div

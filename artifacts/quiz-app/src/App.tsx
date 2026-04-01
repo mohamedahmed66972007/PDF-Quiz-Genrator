@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Quiz, QuizResult } from "./types";
+import { saveResult } from "./lib/storage";
 import { ThemeProvider } from "./context/ThemeContext";
 import ThemePanel from "./components/ThemePanel";
 import HomePage from "./pages/HomePage";
@@ -71,9 +72,10 @@ export default function App() {
           <QuizPage
             quiz={page.quiz}
             onBack={goHome}
-            onFinish={(result) =>
-              setPage({ name: "results", result, quiz: page.quiz })
-            }
+            onFinish={(result) => {
+              saveResult(result);
+              setPage({ name: "results", result, quiz: page.quiz });
+            }}
           />
         )}
 

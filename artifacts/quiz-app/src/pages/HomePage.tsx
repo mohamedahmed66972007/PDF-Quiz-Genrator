@@ -12,6 +12,7 @@ import {
   Play,
   Users,
   AlertTriangle,
+  Download,
 } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 
@@ -59,30 +60,32 @@ export default function HomePage({
     <div className="min-h-screen bg-background text-foreground" dir="rtl">
       <div className="max-w-4xl mx-auto px-4 py-8 pb-24 sm:pb-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-              <BookOpen className="text-primary" size={32} />
-              مولّد الاختبارات
+        <div className="flex items-center justify-between mb-8 gap-3">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
+              <BookOpen className="text-primary flex-shrink-0" size={24} />
+              <span className="truncate">مولّد الاختبارات</span>
             </h1>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-muted-foreground mt-0.5 text-sm hidden sm:block">
               ارفع ملف PDF لإنشاء اختبارات تفاعلية
             </p>
           </div>
-          <div className="flex gap-2 flex-wrap justify-end">
+          <div className="flex gap-2 flex-shrink-0">
             <button
               onClick={onImport}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-card text-foreground hover:bg-accent transition-colors text-sm"
+              title="استيراد اختبار"
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg border border-border bg-card text-foreground hover:bg-accent transition-colors text-sm"
             >
-              <Share2 size={16} />
-              استيراد
+              <Download size={16} />
+              <span className="hidden sm:inline">استيراد</span>
             </button>
             <button
               onClick={onCreateQuiz}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity font-medium text-sm"
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity font-medium text-sm"
             >
               <Plus size={16} />
-              اختبار جديد
+              <span className="hidden sm:inline">اختبار جديد</span>
+              <span className="sm:hidden">جديد</span>
             </button>
           </div>
         </div>
