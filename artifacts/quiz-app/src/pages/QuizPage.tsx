@@ -13,14 +13,12 @@ interface QuizPageProps {
 
 interface QuizQuestion {
   word: WordEntry;
-  /** For MCQ: the 4 display labels (each may be "معنى١ / معنى٢") */
   choices?: string[];
-  /** The display label for the correct answer */
   correctChoiceLabel?: string;
 }
 
 /**
- * Build the display label for a word's meanings:
+ * Build display label for a word's meanings:
  * e.g. ["عذر", "مبرر"] → "عذر / مبرر"
  */
 function meaningLabel(meanings: string[]): string {
@@ -35,6 +33,66 @@ function sharesMeaning(a: WordEntry, b: WordEntry): boolean {
   const aNorm = a.meanings.flatMap((m) => splitMeanings(m)).map(normalizeArabic);
   const bNorm = b.meanings.flatMap((m) => splitMeanings(m)).map(normalizeArabic);
   return aNorm.some((na) => na && bNorm.includes(na));
+}
+
+/**
+ * Build MCQ questions with full anti-repetition logic:
+ * - Wrong choices are drawn from all available words randomly
+ * - Choices that appeared in the previous question are deprioritized
+ * - Similar meanings (synonyms) are kept together as one choice, not split
+ */
+function buildMcqQuestions(
+  selected: WordEntry[],
+  allWords: WordEntry[],
+  shuffleChoices: boolean
+): QuizQuestion[] {
+  const questions: QuizQuestion[] = [];
+  let prevChoiceLabels = new Set<string>();
+
+  for (const word of selected) {
+    const correctLabel = meaningLabel(word.meanings);
+
+    // Pool: all OTHER words that don't share any meaning with this word
+    const distractorPool = allWords.filter(
+      (w) => w.id !== word.id && !sharesMeaning(w, word)
+    );
+
+    const shuffledPool = shuffle(distractorPool);
+    const usedLabels = new Set<string>([correctLabel]);
+    const wrongs: string[] = [];
+
+    // First pass: prefer distractors NOT used in the previous question
+    for (const w of shuffledPool) {
+      if (wrongs.length >= 3) break;
+      const label = meaningLabel(w.meanings);
+      if (!usedLabels.has(label) && !prevChoiceLabels.has(label)) {
+        usedLabels.add(label);
+        wrongs.push(label);
+      }
+    }
+
+    // Second pass: fill remaining slots from any available distractor
+    if (wrongs.length < 3) {
+      for (const w of shuffledPool) {
+        if (wrongs.length >= 3) break;
+        const label = meaningLabel(w.meanings);
+        if (!usedLabels.has(label)) {
+          usedLabels.add(label);
+          wrongs.push(label);
+        }
+      }
+    }
+
+    let choices = [correctLabel, ...wrongs];
+    if (shuffleChoices) choices = shuffle(choices);
+
+    // Track all labels used in this question for the next iteration
+    prevChoiceLabels = new Set(choices);
+
+    questions.push({ word, choices, correctChoiceLabel: correctLabel });
+  }
+
+  return questions;
 }
 
 export default function QuizPage({ quiz, onBack, onFinish }: QuizPageProps) {
@@ -52,43 +110,19 @@ export default function QuizPage({ quiz, onBack, onFinish }: QuizPageProps) {
     const count = Math.min(quiz.settings.wordCount, wordPool.length);
     const selected = wordPool.slice(0, count);
 
-    const qs: QuizQuestion[] = selected.map((word) => {
-      if (quiz.settings.type === "mcq") {
-        const correctLabel = meaningLabel(word.meanings);
-
-        // Build distractor pool: all OTHER word entries that share no meaning with this word
-        const distractorPool = quiz.words.filter(
-          (w) => w.id !== word.id && !sharesMeaning(w, word)
-        );
-
-        // Shuffle and pick 3 unique distractors (by label to avoid duplicates)
-        const usedLabels = new Set<string>([correctLabel]);
-        const wrongs: string[] = [];
-        for (const w of shuffle(distractorPool)) {
-          if (wrongs.length >= 3) break;
-          const label = meaningLabel(w.meanings);
-          if (!usedLabels.has(label)) {
-            usedLabels.add(label);
-            wrongs.push(label);
-          }
-        }
-
-        let choices = [correctLabel, ...wrongs];
-        if (quiz.settings.shuffleChoices) choices = shuffle(choices);
-
-        return { word, choices, correctChoiceLabel: correctLabel };
-      }
-      return { word };
-    });
-
-    setQuestions(qs);
+    if (quiz.settings.type === "mcq") {
+      setQuestions(
+        buildMcqQuestions(selected, quiz.words, quiz.settings.shuffleChoices)
+      );
+    } else {
+      setQuestions(selected.map((word) => ({ word })));
+    }
   }, [quiz]);
 
   const currentQ = questions[currentIdx];
 
   function submitAnswer(answer: string) {
     if (!currentQ) return;
-    // For MCQ the answer is a display label; check if it equals the correct label
     const isCorrect =
       quiz.settings.type === "mcq"
         ? answer === currentQ.correctChoiceLabel
@@ -153,7 +187,7 @@ export default function QuizPage({ quiz, onBack, onFinish }: QuizPageProps) {
 
   return (
     <div className="min-h-screen bg-background text-foreground" dir="rtl">
-      <div className="max-w-2xl mx-auto px-4 py-8">
+      <div className="max-w-2xl mx-auto px-4 py-6 pb-24 sm:py-8 sm:pb-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <button
@@ -177,9 +211,9 @@ export default function QuizPage({ quiz, onBack, onFinish }: QuizPageProps) {
         </div>
 
         {/* Question */}
-        <div className="bg-card border border-border rounded-2xl p-8 mb-6 text-center">
+        <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 mb-6 text-center">
           <p className="text-sm text-muted-foreground mb-4">ما معنى الكلمة التالية؟</p>
-          <h2 className="text-4xl font-bold text-foreground" dir="ltr">
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground" dir="ltr">
             {currentQ.word.word}
           </h2>
         </div>
@@ -211,7 +245,7 @@ export default function QuizPage({ quiz, onBack, onFinish }: QuizPageProps) {
                     if (!showFeedback) setSelectedChoice(choice);
                   }}
                   className={cn(
-                    "w-full p-4 rounded-xl border-2 text-right transition-all font-medium",
+                    "w-full p-4 rounded-xl border-2 text-right transition-all font-medium text-sm sm:text-base",
                     btnStyle
                   )}
                 >

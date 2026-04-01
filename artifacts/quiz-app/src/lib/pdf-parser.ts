@@ -10,20 +10,30 @@ export async function parsePdfFile(file: File): Promise<WordEntry[]> {
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
-  const allTextItems: { text: string; x: number; y: number; page: number }[] = [];
+  const allTextItems: { text: string; x: number; y: number; page: number; height: number }[] = [];
 
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
     const page = await pdf.getPage(pageNum);
     const content = await page.getTextContent();
+    const viewport = page.getViewport({ scale: 1 });
+    const pageHeight = viewport.height;
 
     for (const item of content.items) {
       if ("str" in item && item.str.trim()) {
         const transform = item.transform as number[];
+        const y = Math.round(transform[5]);
+        const height = Math.abs(transform[3]) || 12;
+
+        // Ignore items very close to top or bottom edge (headers/footers/watermarks)
+        const marginThreshold = pageHeight * 0.07;
+        if (y < marginThreshold || y > pageHeight - marginThreshold) continue;
+
         allTextItems.push({
           text: item.str.trim(),
           x: Math.round(transform[4]),
-          y: Math.round(transform[5]),
+          y,
           page: pageNum,
+          height,
         });
       }
     }
@@ -37,6 +47,7 @@ interface TextItem {
   x: number;
   y: number;
   page: number;
+  height?: number;
 }
 
 function isArabicText(text: string): boolean {
@@ -44,53 +55,71 @@ function isArabicText(text: string): boolean {
 }
 
 /**
- * Known Part-of-Speech abbreviations (English column contains ONLY the word itself,
- * the POS column may spill short Latin tokens we must discard).
+ * Known Part-of-Speech abbreviations to reject as standalone tokens.
  */
 const POS_ABBR = new Set([
   "n", "v", "adj", "adv", "prep", "conj", "int", "pron", "det", "art",
   "ph", "ph.",
   "n.", "v.", "adj.", "adv.", "prep.", "conj.", "pron.",
-  // dot-only or Roman-numeral-looking tokens
   "i", "ii", "iii", "iv",
 ]);
 
 function isPosAbbr(text: string): boolean {
-  const t = text.trim().toLowerCase().replace(/\.$/, ""); // strip trailing dot
-  // Single letter
+  const t = text.trim().toLowerCase().replace(/\.$/, "");
   if (/^[a-z]$/.test(t)) return true;
   return POS_ABBR.has(t) || POS_ABBR.has(t + ".");
 }
 
+/**
+ * Strip leading POS abbreviations merged into the word text.
+ * e.g. "Ph. V make up for" → "make up for"
+ *      "Ph.V run out"       → "run out"
+ *      "N. freedom"         → "freedom"
+ *      "V. escape"          → "escape"
+ */
+function stripLeadingPos(text: string): string {
+  return text
+    .replace(
+      /^(?:Ph\.\s*V\.?|Ph\s+V\.?|Phr?\.?\s*V\.?|[NVAIP]\.?\s+(?=[A-Za-z]))/i,
+      ""
+    )
+    .trim();
+}
+
 function isHeaderOrJunk(text: string): boolean {
   const t = text.trim();
-
-  // Empty
   if (!t) return true;
 
   const patterns = [
     // Table headers (English)
-    /^(Word|Part of speech|Meaning|Lesson|Module|Unit|Vocabulary)$/i,
-    // Watermark / branding
+    /^(Word|Part of speech|Meaning|Lesson|Module|Unit|Vocabulary|Type|Definition)$/i,
+    // Watermark / branding (various spellings)
     /UULA/i,
     /uula/i,
     /www\./i,
-    // Arabic copyright / footer
+    /\.com/i,
+    /\.net/i,
+    /\.org/i,
+    // Arabic copyright / footer / watermarks
     /جميع الحقوق/,
     /محفوظة/,
     /حقوق الطبع/,
     /لـ?\s*uula/i,
+    /يولا|يولى/,
+    /الدرس|الوحدة|الفصل|الصفحة/,
+    /الطالب|المعلم|الكتاب/,
     // Standalone Arabic POS words
-    /^(صفة|اسم|فعل|حال|حرف|فعل مركب|ضمير|أداة)$/,
-    // POS combos starting with Arabic POS word
-    /^(صفة|اسم|فعل|حال|حرف|فعل مركب)\s/,
-    // Lesson / page numbers
+    /^(صفة|اسم|فعل|حال|حرف|فعل مركب|فعل عبارة|ضمير|أداة|عبارة فعلية)$/,
+    /^(صفة|اسم|فعل|حال|حرف|فعل مركب|عبارة)\s/,
+    // Lesson / page numbers only
     /^\d+$/,
     /^[\d\s\-–]+$/,
     // Copyright symbol
     /^©/,
     // Very short punctuation-only strings
     /^[.\-–—،,;:]+$/,
+    // Pure POS patterns (standalone)
+    /^(Ph\.\s*V\.?|Ph\s+V|Phr?\.?\s*V\.?)$/i,
   ];
 
   return patterns.some((p) => p.test(t));
@@ -98,8 +127,9 @@ function isHeaderOrJunk(text: string): boolean {
 
 function isValidEnglishWord(text: string): boolean {
   const t = text.trim();
-  // Must contain at least one letter and only Latin chars, spaces, hyphens, apostrophes
+  // Must start with a letter
   if (!/^[a-zA-Z]/.test(t)) return false;
+  // Must contain only Latin chars, spaces, hyphens, apostrophes
   if (!/^[a-zA-Z][a-zA-Z\s\-'\.]*$/.test(t)) return false;
   // Reject POS abbreviations
   if (isPosAbbr(t)) return false;
@@ -142,13 +172,17 @@ function extractWordsFromTextItems(items: TextItem[]): WordEntry[] {
       const arabicItems: TextItem[] = [];
 
       for (const item of line) {
-        const text = item.text.trim();
-        if (!text || isHeaderOrJunk(text)) continue;
+        const rawText = item.text.trim();
+        if (!rawText || isHeaderOrJunk(rawText)) continue;
 
-        if (isArabicText(text)) {
+        if (isArabicText(rawText)) {
           arabicItems.push(item);
-        } else if (isValidEnglishWord(text)) {
-          englishItems.push(item);
+        } else {
+          // Strip leading POS abbreviations merged with the word
+          const cleaned = stripLeadingPos(rawText);
+          if (cleaned && isValidEnglishWord(cleaned)) {
+            englishItems.push({ ...item, text: cleaned });
+          }
         }
       }
 
@@ -159,10 +193,7 @@ function extractWordsFromTextItems(items: TextItem[]): WordEntry[] {
       if (!wordText || seen.has(wordText.toLowerCase())) continue;
       seen.add(wordText.toLowerCase());
 
-      // Arabic meanings: process each item separately through splitMeanings, then flatten.
-      // This handles both:
-      //   • "عذر - مبرر" as one item  → ["عذر", "مبرر"]
-      //   • "عذر" + "مبرر" as two items → ["عذر", "مبرر"]
+      // Arabic meanings: split by separators (– / - / ،) and flatten
       const meanings = arabicItems
         .flatMap((item) => splitMeanings(item.text.trim()))
         .filter(Boolean);

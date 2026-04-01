@@ -42,7 +42,7 @@ export default function ResultsPage({
 
   return (
     <div className="min-h-screen bg-background text-foreground" dir="rtl">
-      <div className="max-w-2xl mx-auto px-4 py-8">
+      <div className="max-w-2xl mx-auto px-4 py-8 pb-24 sm:pb-8">
         {/* Score */}
         <div
           className={cn(
