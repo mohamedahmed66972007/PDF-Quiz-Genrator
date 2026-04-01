@@ -648,6 +648,8 @@ function applyTheme(theme: AppTheme) {
       .querySelectorAll('meta[name="theme-color"]')
       .forEach((el) => el.setAttribute("content", color));
   }
+
+  root.style.setProperty("color-scheme", theme.mode);
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {

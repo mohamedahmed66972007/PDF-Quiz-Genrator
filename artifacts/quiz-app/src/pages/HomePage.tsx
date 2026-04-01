@@ -366,7 +366,10 @@ export default function HomePage({
       </div>
 
       {/* ── Mobile FAB (New Quiz) ── */}
-      <div className="sm:hidden fixed bottom-6 right-4 z-30">
+      <div
+        className="sm:hidden fixed right-4 z-30"
+        style={{ bottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))" }}
+      >
         <button
           onClick={onCreateQuiz}
           className="flex items-center gap-2 px-5 py-3.5 rounded-2xl bg-primary text-primary-foreground shadow-lg hover:opacity-90 transition-opacity font-bold text-sm"
@@ -378,7 +381,10 @@ export default function HomePage({
 
       {/* Copy toast */}
       {copied && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-foreground text-background px-4 py-2 rounded-full text-sm font-medium shadow-lg z-50">
+        <div
+          className="fixed left-1/2 -translate-x-1/2 bg-foreground text-background px-4 py-2 rounded-full text-sm font-medium shadow-lg z-50"
+          style={{ bottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))" }}
+        >
           تم نسخ الرابط!
         </div>
       )}

@@ -10,8 +10,18 @@ body {
   background-color: hsl(var(--background));
 }
 
-body {
-  padding-bottom: env(safe-area-inset-bottom);
+/* Safe area fill – paints app background in the iOS home indicator zone */
+body::after {
+  content: "";
+  display: block;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-bottom, 0px);
+  background-color: hsl(var(--background));
+  z-index: 1;
+  pointer-events: none;
 }
 
 @theme inline {
