@@ -50,7 +50,7 @@ export default function ThemePanel() {
      * Mobile: fixed bottom-right, row layout (right = RTL start side)
      * Desktop (sm+): fixed top-left, column layout
      */
-    <div className="fixed bottom-4 right-4 z-50 flex flex-row-reverse gap-2 sm:flex-col sm:bottom-auto sm:top-4 sm:right-auto sm:left-4">
+    <div className="hidden sm:fixed sm:flex sm:flex-col sm:top-4 sm:left-4 z-50">
       {/* Mode toggle */}
       <button
         onClick={toggleMode}

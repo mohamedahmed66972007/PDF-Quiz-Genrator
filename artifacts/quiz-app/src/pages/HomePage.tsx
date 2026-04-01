@@ -1,9 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Quiz } from "../types";
 import { loadQuizzes, deleteQuiz, loadResultsByQuizId } from "../lib/storage";
 import { encodeQuizToUrl, encodeAllQuizzesToUrl, copyToClipboard } from "../lib/share";
 import { cn } from "../lib/utils";
 import HistoryModal from "../components/HistoryModal";
+import { useTheme, COLORS } from "../context/ThemeContext";
+import { ThemeColor } from "../types";
 import {
   BookOpen,
   Plus,
@@ -16,6 +18,10 @@ import {
   Download,
   History,
   Check,
+  Moon,
+  Sun,
+  Palette,
+  RefreshCw,
 } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 
@@ -26,16 +32,41 @@ interface HomePageProps {
   onImport: () => void;
 }
 
+const COLOR_DOTS: Record<ThemeColor, string> = {
+  blue: "#3b82f6",
+  violet: "#7c3aed",
+  green: "#16a34a",
+  orange: "#f97316",
+  red: "#ef4444",
+  yellow: "#eab308",
+  teal: "#0d9488",
+  pink: "#ec4899",
+};
+
 export default function HomePage({
   onCreateQuiz,
   onEditQuiz,
   onStartQuiz,
   onImport,
 }: HomePageProps) {
+  const { theme, toggleMode, setColor, setAutoChange } = useTheme();
   const [quizzes, setQuizzes] = useState<Quiz[]>(() => loadQuizzes());
   const [copied, setCopied] = useState<string | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [historyQuiz, setHistoryQuiz] = useState<Quiz | null>(null);
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const colorPickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!colorPickerOpen) return;
+    function handleOutside(e: MouseEvent) {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target as Node)) {
+        setColorPickerOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [colorPickerOpen]);
 
   function confirmDelete() {
     if (!deleteTargetId) return;
@@ -65,18 +96,86 @@ export default function HomePage({
 
       {/* ── Mobile Header ── */}
       <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border px-4 py-3 sm:hidden">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <BookOpen className="text-primary flex-shrink-0" size={22} />
-            <span className="font-bold text-lg text-foreground">مولّد الاختبارات</span>
+        <div className="flex items-center justify-between gap-2">
+          {/* Title */}
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <BookOpen className="text-primary flex-shrink-0" size={20} />
+            <span className="font-bold text-base text-foreground truncate">مولّد الاختبارات</span>
           </div>
-          <button
-            onClick={onImport}
-            title="استيراد اختبار"
-            className="p-2.5 rounded-xl border border-border bg-card hover:bg-accent transition-colors"
-          >
-            <Download size={18} />
-          </button>
+
+          {/* Right-side action buttons */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {/* Mode toggle */}
+            <button
+              onClick={toggleMode}
+              title={theme.mode === "dark" ? "وضع نهاري" : "وضع ليلي"}
+              className="w-9 h-9 rounded-xl bg-card border border-border flex items-center justify-center active:scale-95 transition-transform"
+            >
+              {theme.mode === "dark" ? (
+                <Sun size={17} className="text-yellow-400" />
+              ) : (
+                <Moon size={17} className="text-foreground" />
+              )}
+            </button>
+
+            {/* Color picker */}
+            <div className="relative" ref={colorPickerRef}>
+              <button
+                onClick={() => setColorPickerOpen((v) => !v)}
+                title="تغيير اللون"
+                className={cn(
+                  "w-9 h-9 rounded-xl bg-card border flex items-center justify-center active:scale-95 transition-transform",
+                  colorPickerOpen ? "border-primary bg-primary/10" : "border-border"
+                )}
+              >
+                <Palette size={17} className="text-primary" />
+              </button>
+
+              {colorPickerOpen && (
+                <div className="absolute top-full mt-2 left-0 z-50 flex flex-col gap-1 bg-card border border-border rounded-2xl p-2 shadow-xl min-w-[150px]">
+                  {(COLORS as ThemeColor[]).map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => { setColor(c); setColorPickerOpen(false); }}
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-colors text-right w-full",
+                        theme.color === c
+                          ? "bg-primary/10 text-primary"
+                          : "text-foreground active:bg-accent"
+                      )}
+                    >
+                      <div
+                        className="w-3.5 h-3.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: COLOR_DOTS[c] }}
+                      />
+                      {c === "blue" ? "أزرق" : c === "violet" ? "بنفسجي" : c === "green" ? "أخضر" : c === "orange" ? "برتقالي" : c === "red" ? "أحمر" : c === "yellow" ? "أصفر" : c === "teal" ? "أزرق مائي" : "وردي"}
+                    </button>
+                  ))}
+                  <div className="border-t border-border mt-0.5 pt-1">
+                    <button
+                      onClick={() => setAutoChange(!theme.autoChange)}
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs w-full text-right transition-colors",
+                        theme.autoChange ? "bg-primary/10 text-primary" : "text-muted-foreground active:bg-accent"
+                      )}
+                    >
+                      <RefreshCw size={11} />
+                      تغيير تلقائي
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Import */}
+            <button
+              onClick={onImport}
+              title="استيراد اختبار"
+              className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center active:scale-95 transition-transform"
+            >
+              <Download size={17} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -267,7 +366,7 @@ export default function HomePage({
       </div>
 
       {/* ── Mobile FAB (New Quiz) ── */}
-      <div className="sm:hidden fixed bottom-20 left-4 z-30">
+      <div className="sm:hidden fixed bottom-6 right-4 z-30">
         <button
           onClick={onCreateQuiz}
           className="flex items-center gap-2 px-5 py-3.5 rounded-2xl bg-primary text-primary-foreground shadow-lg hover:opacity-90 transition-opacity font-bold text-sm"
