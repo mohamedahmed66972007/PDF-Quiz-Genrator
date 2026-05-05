@@ -55,6 +55,15 @@ function isArabicText(text: string): boolean {
 }
 
 /**
+ * Pure meaning-separator characters that appear between Arabic words.
+ * These must NOT be discarded — they are needed to split compound meanings
+ * like "عجزة – شيخوخة" into two distinct entries.
+ */
+function isMeaningSeparator(text: string): boolean {
+  return /^[—–\/،]+$/.test(text.trim());
+}
+
+/**
  * Known Part-of-Speech abbreviations to reject as standalone tokens.
  */
 const POS_ABBR = new Set([
@@ -73,9 +82,7 @@ function isPosAbbr(text: string): boolean {
 /**
  * Strip leading POS abbreviations merged into the word text.
  * e.g. "Ph. V make up for" → "make up for"
- *      "Ph.V run out"       → "run out"
  *      "N. freedom"         → "freedom"
- *      "V. escape"          → "escape"
  */
 function stripLeadingPos(text: string): string {
   return text
@@ -86,6 +93,31 @@ function stripLeadingPos(text: string): string {
     .trim();
 }
 
+/**
+ * Arabic words that belong to the Part-of-Speech column, not the meaning column.
+ * These appear as full labels or fragments when PDF.js splits them.
+ *
+ * Full labels:   صفة, اسم, فعل, حال, حرف, فعل مركب, حرف جر, عبارة فعلية …
+ * Fragments:     مركب (from "فعل مركب"), جر (from "حرف جر"), فعلية, متعد …
+ */
+const ARABIC_POS_WORDS = new Set([
+  // Full standalone POS words
+  "صفة", "اسم", "فعل", "حال", "حرف", "ضمير", "أداة", "عبارة",
+  // Fragments that leak when PDF.js splits a multi-word POS label
+  "مركب", "جر", "فعلية", "متعد", "لازم",
+]);
+
+function isArabicPosLabel(text: string): boolean {
+  const t = text.trim();
+  // Single-word POS fragment
+  if (ARABIC_POS_WORDS.has(t)) return true;
+  // Multi-word POS labels (full forms)
+  if (/^(فعل مركب|حرف جر|عبارة فعلية|فعل عبارة)$/.test(t)) return true;
+  // POS word followed by anything (e.g. "صفة Adj", "اسم N")
+  if (/^(صفة|اسم|فعل|حال|حرف|فعل مركب|حرف جر|عبارة)\s/.test(t)) return true;
+  return false;
+}
+
 function isHeaderOrJunk(text: string): boolean {
   const t = text.trim();
   if (!t) return true;
@@ -93,9 +125,8 @@ function isHeaderOrJunk(text: string): boolean {
   const patterns = [
     // Table headers (English)
     /^(Word|Part of speech|Meaning|Lesson|Module|Unit|Vocabulary|Type|Definition)$/i,
-    // Watermark / branding (various spellings)
+    // Watermark / branding
     /UULA/i,
-    /uula/i,
     /www\./i,
     /\.com/i,
     /\.net/i,
@@ -108,17 +139,12 @@ function isHeaderOrJunk(text: string): boolean {
     /يولا|يولى/,
     /الدرس|الوحدة|الفصل|الصفحة/,
     /الطالب|المعلم|الكتاب/,
-    // Standalone Arabic POS words
-    /^(صفة|اسم|فعل|حال|حرف|فعل مركب|فعل عبارة|ضمير|أداة|عبارة فعلية)$/,
-    /^(صفة|اسم|فعل|حال|حرف|فعل مركب|عبارة)\s/,
-    // Lesson / page numbers only
+    // Lesson / page numbers
     /^\d+$/,
-    /^[\d\s\-–]+$/,
+    /^[\d\s]+$/,
     // Copyright symbol
     /^©/,
-    // Very short punctuation-only strings
-    /^[.\-–—،,;:]+$/,
-    // Pure POS patterns (standalone)
+    // Pure POS patterns (standalone English)
     /^(Ph\.\s*V\.?|Ph\s+V|Phr?\.?\s*V\.?)$/i,
   ];
 
@@ -127,52 +153,44 @@ function isHeaderOrJunk(text: string): boolean {
 
 function isValidEnglishWord(text: string): boolean {
   const t = text.trim();
-  // Must start with a letter
   if (!/^[a-zA-Z]/.test(t)) return false;
-  // Must contain only Latin chars, spaces, hyphens, apostrophes
   if (!/^[a-zA-Z][a-zA-Z\s\-'\.]*$/.test(t)) return false;
-  // Reject POS abbreviations
   if (isPosAbbr(t)) return false;
-  // Reject all-caps abbreviations like "UULA", "WWW"
   if (/^[A-Z]{2,}$/.test(t)) return false;
   return true;
 }
 
 /**
- * Reconstruct the correct Arabic reading order for items on the same line.
+ * Reconstruct Arabic meanings from text items on the same line.
  *
- * In PDF.js, Arabic text items on a line may come as individual words or
- * small chunks. Each item's x coordinate is the *left* edge of that chunk
- * in the PDF coordinate space (left-to-right). Because Arabic is right-to-left,
- * visually the first Arabic word sits at the rightmost (highest x) position.
+ * Problem context:
+ * - PDF.js emits Arabic text as many small chunks (one word or phrase per item).
+ * - Separator characters like "–" may be emitted as their own separate item.
+ * - The POS column ("فعل مركب") sits between the English word column and the
+ *   Arabic meaning column; its fragments must be excluded.
  *
  * Strategy:
- * 1. Sort all Arabic items on the line by x DESCENDING → right-to-left order.
- * 2. Join them with a single space — this reconstructs the full Arabic phrase.
- * 3. Then split on the actual meaning separators (/ – ،) to get distinct meanings.
- *
- * This prevents compound phrases like "على الرغم من" from being split into
- * three separate "meanings" just because pdf.js emitted three text items.
+ * 1. Receive "arabic meaning" items (already filtered for POS words) and
+ *    "separator" items (–, /, ،) that fell between them.
+ * 2. Merge both lists and sort by x DESCENDING (RTL reading order).
+ * 3. Join with spaces — this produces a string like "عجزة – شيخوخة" or
+ *    "على الرغم من" (no separator ⇒ one compound meaning).
+ * 4. Call splitMeanings() which splits on –, /, ، to get the final list.
  */
-function buildArabicMeanings(arabicItems: TextItem[]): string[] {
-  // Sort RTL: highest x first (rightmost = first in Arabic reading direction)
-  const sorted = [...arabicItems].sort((a, b) => b.x - a.x);
+function buildArabicMeanings(
+  arabicItems: TextItem[],
+  separatorItems: TextItem[]
+): string[] {
+  const combined = [...arabicItems, ...separatorItems].sort(
+    (a, b) => b.x - a.x
+  );
 
-  // Join all chunks into one string preserving reading order
-  const joined = sorted
+  const joined = combined
     .map((i) => i.text.trim())
     .filter(Boolean)
     .join(" ");
 
-  // Now split only on real meaning separators:
-  //   /   → the primary separator used in these vocabulary sheets
-  //   –   → en-dash used between alternatives (e.g. "يُخفي – يغطي")
-  //   —   → em-dash variant
-  //   ،   → Arabic comma
-  // We intentionally do NOT split on plain hyphen "-" because it can appear
-  // inside compound Arabic words or as part of a meaning like "100 عام".
-  const meanings = splitMeanings(joined).filter(Boolean);
-  return meanings;
+  return splitMeanings(joined).filter(Boolean);
 }
 
 function extractWordsFromTextItems(items: TextItem[]): WordEntry[] {
@@ -207,15 +225,27 @@ function extractWordsFromTextItems(items: TextItem[]): WordEntry[] {
     for (const line of lines) {
       const englishItems: TextItem[] = [];
       const arabicItems: TextItem[] = [];
+      // Separator characters (–, /, ،) kept separately so they are not lost
+      const separatorItems: TextItem[] = [];
 
       for (const item of line) {
         const rawText = item.text.trim();
-        if (!rawText || isHeaderOrJunk(rawText)) continue;
+        if (!rawText) continue;
+
+        // Preserve meaning separators — do NOT discard them
+        if (isMeaningSeparator(rawText)) {
+          separatorItems.push(item);
+          continue;
+        }
+
+        // Discard generic junk / headers / watermarks
+        if (isHeaderOrJunk(rawText)) continue;
 
         if (isArabicText(rawText)) {
+          // Discard Arabic POS column words (e.g. "صفة", "مركب", "جر")
+          if (isArabicPosLabel(rawText)) continue;
           arabicItems.push(item);
         } else {
-          // Strip leading POS abbreviations merged with the word
           const cleaned = stripLeadingPos(rawText);
           if (cleaned && isValidEnglishWord(cleaned)) {
             englishItems.push({ ...item, text: cleaned });
@@ -230,9 +260,8 @@ function extractWordsFromTextItems(items: TextItem[]): WordEntry[] {
       if (!wordText || seen.has(wordText.toLowerCase())) continue;
       seen.add(wordText.toLowerCase());
 
-      // Arabic meanings: join all items in RTL order, then split on real separators
-      const meanings = buildArabicMeanings(arabicItems);
-
+      // Arabic meanings: merge with separators, sort RTL, then split
+      const meanings = buildArabicMeanings(arabicItems, separatorItems);
       if (meanings.length === 0) continue;
 
       words.push({ id: nanoid(), word: wordText, meanings });
