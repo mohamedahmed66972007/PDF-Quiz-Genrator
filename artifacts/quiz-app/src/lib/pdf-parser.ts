@@ -138,6 +138,43 @@ function isValidEnglishWord(text: string): boolean {
   return true;
 }
 
+/**
+ * Reconstruct the correct Arabic reading order for items on the same line.
+ *
+ * In PDF.js, Arabic text items on a line may come as individual words or
+ * small chunks. Each item's x coordinate is the *left* edge of that chunk
+ * in the PDF coordinate space (left-to-right). Because Arabic is right-to-left,
+ * visually the first Arabic word sits at the rightmost (highest x) position.
+ *
+ * Strategy:
+ * 1. Sort all Arabic items on the line by x DESCENDING → right-to-left order.
+ * 2. Join them with a single space — this reconstructs the full Arabic phrase.
+ * 3. Then split on the actual meaning separators (/ – ،) to get distinct meanings.
+ *
+ * This prevents compound phrases like "على الرغم من" from being split into
+ * three separate "meanings" just because pdf.js emitted three text items.
+ */
+function buildArabicMeanings(arabicItems: TextItem[]): string[] {
+  // Sort RTL: highest x first (rightmost = first in Arabic reading direction)
+  const sorted = [...arabicItems].sort((a, b) => b.x - a.x);
+
+  // Join all chunks into one string preserving reading order
+  const joined = sorted
+    .map((i) => i.text.trim())
+    .filter(Boolean)
+    .join(" ");
+
+  // Now split only on real meaning separators:
+  //   /   → the primary separator used in these vocabulary sheets
+  //   –   → en-dash used between alternatives (e.g. "يُخفي – يغطي")
+  //   —   → em-dash variant
+  //   ،   → Arabic comma
+  // We intentionally do NOT split on plain hyphen "-" because it can appear
+  // inside compound Arabic words or as part of a meaning like "100 عام".
+  const meanings = splitMeanings(joined).filter(Boolean);
+  return meanings;
+}
+
 function extractWordsFromTextItems(items: TextItem[]): WordEntry[] {
   const words: WordEntry[] = [];
   const seen = new Set<string>();
@@ -193,10 +230,8 @@ function extractWordsFromTextItems(items: TextItem[]): WordEntry[] {
       if (!wordText || seen.has(wordText.toLowerCase())) continue;
       seen.add(wordText.toLowerCase());
 
-      // Arabic meanings: split by separators (– / - / ،) and flatten
-      const meanings = arabicItems
-        .flatMap((item) => splitMeanings(item.text.trim()))
-        .filter(Boolean);
+      // Arabic meanings: join all items in RTL order, then split on real separators
+      const meanings = buildArabicMeanings(arabicItems);
 
       if (meanings.length === 0) continue;
 
