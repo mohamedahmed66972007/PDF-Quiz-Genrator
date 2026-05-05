@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Quiz, QuizResult } from "./types";
+import { Quiz, QuizResult, WordEntry } from "./types";
 import { saveResult, getQuizById } from "./lib/storage";
 import { ThemeProvider } from "./context/ThemeContext";
 import ThemePanel from "./components/ThemePanel";
@@ -91,6 +91,38 @@ export default function App() {
     setPage({ name: "home" });
   }
 
+  function handleRetryWrong(result: QuizResult) {
+    const wrongAnswers = result.answers.filter((a) => !a.correct);
+    if (wrongAnswers.length === 0) return;
+
+    const originalQuiz = getQuizById(result.quizId);
+
+    const wrongWords: WordEntry[] = wrongAnswers.map((a) => ({
+      id: a.wordId,
+      word: a.wordText,
+      meanings: a.correctMeanings,
+    }));
+
+    const baseSettings = originalQuiz?.settings ?? {
+      type: "mcq" as const,
+      shuffleQuestions: true,
+      shuffleChoices: true,
+      gradingMode: "final" as const,
+      wordCount: wrongWords.length,
+    };
+
+    const tempQuiz: Quiz = {
+      id: originalQuiz?.id ?? `retry_${Date.now()}`,
+      name: `إعادة أخطاء: ${result.quizName}`,
+      words: wrongWords,
+      settings: { ...baseSettings, wordCount: wrongWords.length },
+      createdAt: originalQuiz?.createdAt ?? Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    setPage({ name: "quiz", quiz: tempQuiz });
+  }
+
   return (
     <ThemeProvider>
       <div className="min-h-screen bg-background">
@@ -102,6 +134,7 @@ export default function App() {
             onEditQuiz={(quiz) => setPage({ name: "edit", quiz })}
             onStartQuiz={(quiz) => setPage({ name: "quiz", quiz })}
             onImport={() => setPage({ name: "import" })}
+            onRetryWrong={handleRetryWrong}
           />
         )}
 
@@ -134,9 +167,8 @@ export default function App() {
         {page.name === "results" && (
           <ResultsPage
             result={page.result}
-            onRetry={() =>
-              setPage({ name: "quiz", quiz: page.quiz })
-            }
+            onRetry={() => setPage({ name: "quiz", quiz: page.quiz })}
+            onRetryWrong={() => handleRetryWrong(page.result)}
             onHome={goHome}
           />
         )}

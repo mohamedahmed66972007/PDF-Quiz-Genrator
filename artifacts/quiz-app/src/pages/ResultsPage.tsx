@@ -9,15 +9,17 @@ import {
   ChevronDown,
   ChevronUp,
   Eye,
+  AlertCircle,
 } from "lucide-react";
 
 interface ResultsPageProps {
   result: QuizResult;
   onRetry: () => void;
+  onRetryWrong: () => void;
   onHome: () => void;
 }
 
-export default function ResultsPage({ result, onRetry, onHome }: ResultsPageProps) {
+export default function ResultsPage({ result, onRetry, onRetryWrong, onHome }: ResultsPageProps) {
   const [showWrongOnly, setShowWrongOnly] = useState(false);
 
   const wrongAnswers = result.answers.filter((a) => !a.correct);
@@ -77,7 +79,7 @@ export default function ResultsPage({ result, onRetry, onHome }: ResultsPageProp
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 mb-5">
+        <div className="flex gap-3 mb-3">
           <button
             onClick={onHome}
             className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-border bg-card hover:bg-accent transition-colors font-semibold text-sm"
@@ -93,6 +95,22 @@ export default function ResultsPage({ result, onRetry, onHome }: ResultsPageProp
             إعادة الاختبار
           </button>
         </div>
+
+        {/* Retry wrong answers button */}
+        {wrongAnswers.length > 0 && wrongAnswers.length < result.totalQuestions && (
+          <button
+            onClick={onRetryWrong}
+            className="w-full flex items-center justify-center gap-2 py-3.5 mb-5 rounded-2xl border border-destructive/40 bg-destructive/5 hover:bg-destructive/10 text-destructive transition-colors font-semibold text-sm"
+          >
+            <AlertCircle size={17} />
+            إعادة الأخطاء فقط ({wrongAnswers.length} سؤال)
+          </button>
+        )}
+
+        {/* spacer when no retry-wrong button */}
+        {!(wrongAnswers.length > 0 && wrongAnswers.length < result.totalQuestions) && (
+          <div className="mb-5" />
+        )}
 
         {/* Filter */}
         {wrongAnswers.length > 0 && (

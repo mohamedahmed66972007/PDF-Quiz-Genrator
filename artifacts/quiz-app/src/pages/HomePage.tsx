@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Quiz } from "../types";
-import { loadQuizzes, deleteQuiz, loadResultsByQuizId } from "../lib/storage";
+import { loadQuizzes, deleteQuiz, loadResultsByQuizId, saveQuiz } from "../lib/storage";
 import { encodeQuizToUrl, encodeAllQuizzesToUrl, copyToClipboard } from "../lib/share";
 import { cn } from "../lib/utils";
 import HistoryModal from "../components/HistoryModal";
 import { useTheme, COLORS } from "../context/ThemeContext";
-import { ThemeColor } from "../types";
+import { ThemeColor, QuizResult } from "../types";
 import {
   BookOpen,
   Plus,
@@ -22,6 +22,10 @@ import {
   Sun,
   Palette,
   RefreshCw,
+  GitMerge,
+  X,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 
@@ -30,6 +34,7 @@ interface HomePageProps {
   onEditQuiz: (quiz: Quiz) => void;
   onStartQuiz: (quiz: Quiz) => void;
   onImport: () => void;
+  onRetryWrong: (result: QuizResult) => void;
 }
 
 const COLOR_DOTS: Record<ThemeColor, string> = {
@@ -48,6 +53,7 @@ export default function HomePage({
   onEditQuiz,
   onStartQuiz,
   onImport,
+  onRetryWrong,
 }: HomePageProps) {
   const { theme, toggleMode, setColor, setAutoChange } = useTheme();
   const [quizzes, setQuizzes] = useState<Quiz[]>(() => loadQuizzes());
@@ -56,6 +62,11 @@ export default function HomePage({
   const [historyQuiz, setHistoryQuiz] = useState<Quiz | null>(null);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const colorPickerRef = useRef<HTMLDivElement>(null);
+
+  // Merge mode state
+  const [mergeMode, setMergeMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [mergeSuccess, setMergeSuccess] = useState(false);
 
   useEffect(() => {
     if (!colorPickerOpen) return;
@@ -89,7 +100,59 @@ export default function HomePage({
     setTimeout(() => setCopied(null), 2000);
   }
 
+  function toggleMergeMode() {
+    setMergeMode((v) => !v);
+    setSelectedIds(new Set());
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function handleMerge() {
+    const selected = quizzes.filter((q) => selectedIds.has(q.id));
+    if (selected.length < 2) return;
+
+    // Combine words, deduplicate by wordId
+    const seenIds = new Set<string>();
+    const combinedWords = selected.flatMap((q) =>
+      q.words.filter((w) => {
+        if (seenIds.has(w.id)) return false;
+        seenIds.add(w.id);
+        return true;
+      })
+    );
+
+    const names = selected.map((q) => q.name).join(" + ");
+    const base = selected[0];
+
+    const mergedQuiz: Quiz = {
+      id: `merged_${Date.now()}`,
+      name: `مجمع: ${names}`,
+      words: combinedWords,
+      settings: {
+        ...base.settings,
+        wordCount: combinedWords.length,
+      },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    saveQuiz(mergedQuiz);
+    setQuizzes(loadQuizzes());
+    setMergeMode(false);
+    setSelectedIds(new Set());
+    setMergeSuccess(true);
+    setTimeout(() => setMergeSuccess(false), 2500);
+  }
+
   const deleteTargetName = quizzes.find((q) => q.id === deleteTargetId)?.name ?? "";
+  const selectedCount = selectedIds.size;
 
   return (
     <div className="min-h-screen bg-background text-foreground" dir="rtl">
@@ -167,14 +230,32 @@ export default function HomePage({
               )}
             </div>
 
+            {/* Merge mode toggle (only shown when 2+ quizzes) */}
+            {quizzes.length >= 2 && (
+              <button
+                onClick={toggleMergeMode}
+                title={mergeMode ? "إلغاء الدمج" : "دمج اختبارات"}
+                className={cn(
+                  "w-9 h-9 rounded-xl border flex items-center justify-center active:scale-95 transition-all",
+                  mergeMode
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card"
+                )}
+              >
+                {mergeMode ? <X size={17} /> : <GitMerge size={17} />}
+              </button>
+            )}
+
             {/* Import */}
-            <button
-              onClick={onImport}
-              title="استيراد اختبار"
-              className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center active:scale-95 transition-transform"
-            >
-              <Download size={17} />
-            </button>
+            {!mergeMode && (
+              <button
+                onClick={onImport}
+                title="استيراد اختبار"
+                className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center active:scale-95 transition-transform"
+              >
+                <Download size={17} />
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -189,23 +270,62 @@ export default function HomePage({
             </h1>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={onImport}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card hover:bg-accent transition-colors text-sm font-medium"
-            >
-              <Download size={16} />
-              استيراد
-            </button>
-            <button
-              onClick={onCreateQuiz}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-medium"
-            >
-              <Plus size={16} />
-              اختبار جديد
-            </button>
+            {!mergeMode && (
+              <>
+                <button
+                  onClick={onImport}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card hover:bg-accent transition-colors text-sm font-medium"
+                >
+                  <Download size={16} />
+                  استيراد
+                </button>
+                {quizzes.length >= 2 && (
+                  <button
+                    onClick={toggleMergeMode}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card hover:bg-accent transition-colors text-sm font-medium"
+                  >
+                    <GitMerge size={16} />
+                    دمج اختبارات
+                  </button>
+                )}
+                <button
+                  onClick={onCreateQuiz}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-medium"
+                >
+                  <Plus size={16} />
+                  اختبار جديد
+                </button>
+              </>
+            )}
+            {mergeMode && (
+              <button
+                onClick={toggleMergeMode}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card hover:bg-accent transition-colors text-sm font-medium"
+              >
+                <X size={16} />
+                إلغاء الدمج
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {/* ── Merge mode banner ── */}
+      {mergeMode && (
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 mb-2">
+          <div className="bg-primary/10 border border-primary/30 rounded-2xl px-4 py-3 flex items-center gap-3">
+            <GitMerge size={18} className="text-primary flex-shrink-0" />
+            <p className="text-sm text-foreground flex-1">
+              اختر <span className="font-bold text-primary">اختبارَين أو أكثر</span> لدمجهما في اختبار واحد
+            </p>
+            {selectedCount >= 2 && (
+              <span className="text-xs text-primary font-semibold bg-primary/20 px-2 py-0.5 rounded-full">
+                {selectedCount} محدد
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Content ── */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 pb-28 sm:pb-10">
@@ -239,51 +359,76 @@ export default function HomePage({
                   ? "text-yellow-600 dark:text-yellow-400"
                   : "text-destructive";
 
+                const isSelected = selectedIds.has(quiz.id);
+
                 return (
                   <div
                     key={quiz.id}
-                    className="bg-card border border-border rounded-2xl overflow-hidden hover:border-primary/40 transition-colors"
+                    onClick={mergeMode ? () => toggleSelect(quiz.id) : undefined}
+                    className={cn(
+                      "bg-card border rounded-2xl overflow-hidden transition-all",
+                      mergeMode
+                        ? "cursor-pointer select-none"
+                        : "hover:border-primary/40",
+                      mergeMode && isSelected
+                        ? "border-primary ring-2 ring-primary/30"
+                        : "border-border"
+                    )}
                   >
                     {/* Card body */}
                     <div className="px-4 pt-4 pb-3">
                       <div className="flex items-start justify-between gap-2">
+                        {/* Merge mode checkbox */}
+                        {mergeMode && (
+                          <div className="flex-shrink-0 mt-0.5">
+                            {isSelected ? (
+                              <CheckSquare size={20} className="text-primary" />
+                            ) : (
+                              <Square size={20} className="text-muted-foreground" />
+                            )}
+                          </div>
+                        )}
+
                         <h3 className="font-bold text-foreground text-base leading-tight flex-1 min-w-0 truncate">
                           {quiz.name}
                         </h3>
-                        {/* Desktop action buttons */}
-                        <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0">
-                          <ActionButton
-                            onClick={() => handleShare(quiz)}
-                            title="مشاركة"
-                            active={copied === quiz.id}
-                          >
-                            {copied === quiz.id ? <Check size={15} /> : <Share2 size={15} />}
-                          </ActionButton>
-                          <ActionButton onClick={() => onEditQuiz(quiz)} title="تعديل">
-                            <Edit size={15} />
-                          </ActionButton>
-                          <ActionButton
-                            onClick={() => setHistoryQuiz(quiz)}
-                            title="النتائج السابقة"
-                            badge={resultCount > 0 ? resultCount : undefined}
-                          >
-                            <History size={15} />
-                          </ActionButton>
-                          <ActionButton
-                            onClick={() => setDeleteTargetId(quiz.id)}
-                            title="حذف"
-                            danger
-                          >
-                            <Trash2 size={15} />
-                          </ActionButton>
-                          <button
-                            onClick={() => onStartQuiz(quiz)}
-                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-semibold mr-1"
-                          >
-                            <Play size={14} />
-                            ابدأ
-                          </button>
-                        </div>
+
+                        {/* Desktop action buttons (hidden in merge mode) */}
+                        {!mergeMode && (
+                          <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0">
+                            <ActionButton
+                              onClick={() => handleShare(quiz)}
+                              title="مشاركة"
+                              active={copied === quiz.id}
+                            >
+                              {copied === quiz.id ? <Check size={15} /> : <Share2 size={15} />}
+                            </ActionButton>
+                            <ActionButton onClick={() => onEditQuiz(quiz)} title="تعديل">
+                              <Edit size={15} />
+                            </ActionButton>
+                            <ActionButton
+                              onClick={() => setHistoryQuiz(quiz)}
+                              title="النتائج السابقة"
+                              badge={resultCount > 0 ? resultCount : undefined}
+                            >
+                              <History size={15} />
+                            </ActionButton>
+                            <ActionButton
+                              onClick={() => setDeleteTargetId(quiz.id)}
+                              title="حذف"
+                              danger
+                            >
+                              <Trash2 size={15} />
+                            </ActionButton>
+                            <button
+                              onClick={() => onStartQuiz(quiz)}
+                              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-semibold mr-1"
+                            >
+                              <Play size={14} />
+                              ابدأ
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       {/* Metadata */}
@@ -311,37 +456,39 @@ export default function HomePage({
                       )}
                     </div>
 
-                    {/* Mobile action bar */}
-                    <div className="sm:hidden flex items-center border-t border-border/60 divide-x divide-x-reverse divide-border/60">
-                      <MobileAction onClick={() => handleShare(quiz)} active={copied === quiz.id}>
-                        {copied === quiz.id ? <Check size={16} /> : <Share2 size={16} />}
-                      </MobileAction>
-                      <MobileAction onClick={() => onEditQuiz(quiz)}>
-                        <Edit size={16} />
-                      </MobileAction>
-                      <MobileAction
-                        onClick={() => setHistoryQuiz(quiz)}
-                        badge={resultCount > 0 ? resultCount : undefined}
-                      >
-                        <History size={16} />
-                      </MobileAction>
-                      <MobileAction onClick={() => setDeleteTargetId(quiz.id)} danger>
-                        <Trash2 size={16} />
-                      </MobileAction>
-                      <button
-                        onClick={() => onStartQuiz(quiz)}
-                        className="flex-1 flex items-center justify-center gap-2 py-3 bg-primary text-primary-foreground hover:opacity-90 transition-opacity font-bold text-sm"
-                      >
-                        <Play size={16} />
-                        ابدأ الاختبار
-                      </button>
-                    </div>
+                    {/* Mobile action bar (hidden in merge mode) */}
+                    {!mergeMode && (
+                      <div className="sm:hidden flex items-center border-t border-border/60 divide-x divide-x-reverse divide-border/60">
+                        <MobileAction onClick={() => handleShare(quiz)} active={copied === quiz.id}>
+                          {copied === quiz.id ? <Check size={16} /> : <Share2 size={16} />}
+                        </MobileAction>
+                        <MobileAction onClick={() => onEditQuiz(quiz)}>
+                          <Edit size={16} />
+                        </MobileAction>
+                        <MobileAction
+                          onClick={() => setHistoryQuiz(quiz)}
+                          badge={resultCount > 0 ? resultCount : undefined}
+                        >
+                          <History size={16} />
+                        </MobileAction>
+                        <MobileAction onClick={() => setDeleteTargetId(quiz.id)} danger>
+                          <Trash2 size={16} />
+                        </MobileAction>
+                        <button
+                          onClick={() => onStartQuiz(quiz)}
+                          className="flex-1 flex items-center justify-center gap-2 py-3 bg-primary text-primary-foreground hover:opacity-90 transition-opacity font-bold text-sm"
+                        >
+                          <Play size={16} />
+                          ابدأ الاختبار
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
 
-            {quizzes.length > 1 && (
+            {!mergeMode && quizzes.length > 1 && (
               <div className="mt-4 flex justify-center">
                 <button
                   onClick={handleShareAll}
@@ -359,19 +506,58 @@ export default function HomePage({
         )}
       </div>
 
-      {/* ── Mobile FAB (New Quiz) ── */}
-      <div
-        className="sm:hidden fixed right-4 z-30"
-        style={{ bottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))" }}
-      >
-        <button
-          onClick={onCreateQuiz}
-          className="flex items-center gap-2 px-5 py-3.5 rounded-2xl bg-primary text-primary-foreground shadow-lg hover:opacity-90 transition-opacity font-bold text-sm"
+      {/* ── Mobile FAB ── */}
+      {!mergeMode && (
+        <div
+          className="sm:hidden fixed right-4 z-30"
+          style={{ bottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))" }}
         >
-          <Plus size={20} />
-          اختبار جديد
-        </button>
-      </div>
+          <button
+            onClick={onCreateQuiz}
+            className="flex items-center gap-2 px-5 py-3.5 rounded-2xl bg-primary text-primary-foreground shadow-lg hover:opacity-90 transition-opacity font-bold text-sm"
+          >
+            <Plus size={20} />
+            اختبار جديد
+          </button>
+        </div>
+      )}
+
+      {/* ── Merge action bar (floating bottom) ── */}
+      {mergeMode && (
+        <div
+          className="fixed inset-x-0 z-40 flex justify-center px-4"
+          style={{ bottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
+        >
+          <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl px-4 py-3 flex items-center gap-3">
+            <span className="text-sm text-muted-foreground flex-1">
+              {selectedCount === 0
+                ? "اختر اختبارات للدمج"
+                : selectedCount === 1
+                ? "اختر اختبار آخر على الأقل"
+                : `${selectedCount} اختبارات محددة`}
+            </span>
+            <button
+              onClick={toggleMergeMode}
+              className="px-3 py-2 rounded-xl border border-border text-sm font-semibold hover:bg-accent transition-colors"
+            >
+              إلغاء
+            </button>
+            <button
+              onClick={handleMerge}
+              disabled={selectedCount < 2}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all",
+                selectedCount >= 2
+                  ? "bg-primary text-primary-foreground hover:opacity-90"
+                  : "bg-muted text-muted-foreground cursor-not-allowed"
+              )}
+            >
+              <GitMerge size={16} />
+              دمج
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Copy toast */}
       {copied && (
@@ -383,12 +569,27 @@ export default function HomePage({
         </div>
       )}
 
+      {/* Merge success toast */}
+      {mergeSuccess && (
+        <div
+          className="fixed left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-5 py-2.5 rounded-full text-sm font-bold shadow-lg z-50 flex items-center gap-2"
+          style={{ bottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))" }}
+        >
+          <Check size={16} />
+          تم إنشاء الاختبار المجمع!
+        </div>
+      )}
+
       {/* History Modal */}
       {historyQuiz && (
         <HistoryModal
           quizId={historyQuiz.id}
           quizName={historyQuiz.name}
           onClose={() => setHistoryQuiz(null)}
+          onRetryWrong={(result) => {
+            setHistoryQuiz(null);
+            onRetryWrong(result);
+          }}
         />
       )}
 

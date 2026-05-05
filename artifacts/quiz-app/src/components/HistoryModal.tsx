@@ -9,12 +9,14 @@ import {
   Clock,
   Trophy,
   AlertCircle,
+  RotateCcw,
 } from "lucide-react";
 
 interface HistoryModalProps {
   quizId: string;
   quizName: string;
   onClose: () => void;
+  onRetryWrong?: (result: QuizResult) => void;
 }
 
 function formatDate(ts: number): string {
@@ -27,7 +29,7 @@ function formatDate(ts: number): string {
   });
 }
 
-export default function HistoryModal({ quizId, quizName, onClose }: HistoryModalProps) {
+export default function HistoryModal({ quizId, quizName, onClose, onRetryWrong }: HistoryModalProps) {
   const [selected, setSelected] = useState<QuizResult | null>(null);
   const results = loadResultsByQuizId(quizId);
 
@@ -37,6 +39,7 @@ export default function HistoryModal({ quizId, quizName, onClose }: HistoryModal
         result={selected}
         onBack={() => setSelected(null)}
         onClose={onClose}
+        onRetryWrong={onRetryWrong}
       />
     );
   }
@@ -148,10 +151,12 @@ function DetailView({
   result,
   onBack,
   onClose,
+  onRetryWrong,
 }: {
   result: QuizResult;
   onBack: () => void;
   onClose: () => void;
+  onRetryWrong?: (result: QuizResult) => void;
 }) {
   const [showWrongOnly, setShowWrongOnly] = useState(false);
   const wrongAnswers = result.answers.filter((a) => !a.correct);
@@ -198,6 +203,19 @@ function DetailView({
             <X size={18} />
           </button>
         </div>
+
+        {/* Retry wrong answers button */}
+        {wrongAnswers.length > 0 && wrongAnswers.length < result.totalQuestions && onRetryWrong && (
+          <div className="px-4 py-2.5 border-b border-border">
+            <button
+              onClick={() => { onClose(); onRetryWrong(result); }}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-destructive/40 bg-destructive/5 hover:bg-destructive/10 text-destructive transition-colors font-semibold text-sm"
+            >
+              <RotateCcw size={15} />
+              إعادة الأخطاء فقط ({wrongAnswers.length} سؤال)
+            </button>
+          </div>
+        )}
 
         {/* Filter tabs */}
         {wrongAnswers.length > 0 && (
