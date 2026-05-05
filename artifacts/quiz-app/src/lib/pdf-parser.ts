@@ -97,12 +97,14 @@ function stripLeadingPos(text: string): string {
  * Arabic words that belong to the Part-of-Speech column, not the meaning column.
  * These appear as full labels or fragments when PDF.js splits them.
  *
- * Full labels:   صفة, اسم, فعل, حال, حرف, فعل مركب, حرف جر, عبارة فعلية …
+ * Full labels:   صفة, اسم, فعل, حال, حرف, فعل مركب, حرف جر, عبارة فعلية, مصطلح …
  * Fragments:     مركب (from "فعل مركب"), جر (from "حرف جر"), فعلية, متعد …
  */
 const ARABIC_POS_WORDS = new Set([
   // Full standalone POS words
   "صفة", "اسم", "فعل", "حال", "حرف", "ضمير", "أداة", "عبارة",
+  // Idiom label (Idiom = مصطلح)
+  "مصطلح",
   // Fragments that leak when PDF.js splits a multi-word POS label
   "مركب", "جر", "فعلية", "متعد", "لازم",
 ]);
@@ -113,9 +115,29 @@ function isArabicPosLabel(text: string): boolean {
   if (ARABIC_POS_WORDS.has(t)) return true;
   // Multi-word POS labels (full forms)
   if (/^(فعل مركب|حرف جر|عبارة فعلية|فعل عبارة)$/.test(t)) return true;
-  // POS word followed by anything (e.g. "صفة Adj", "اسم N")
-  if (/^(صفة|اسم|فعل|حال|حرف|فعل مركب|حرف جر|عبارة)\s/.test(t)) return true;
+  // POS word followed by anything (e.g. "صفة Adj", "اسم N", "مصطلح Idiom")
+  if (/^(صفة|اسم|فعل|حال|حرف|فعل مركب|حرف جر|عبارة|مصطلح)\s/.test(t)) return true;
   return false;
+}
+
+/**
+ * Returns true if a line contains a POS marker indicating an Idiom or Phrasal Verb.
+ * These rows should be skipped entirely — they are not standalone vocabulary words.
+ */
+function isIdiomOrPhrasalVerbLine(items: TextItem[]): boolean {
+  return items.some((item) => {
+    const t = item.text.trim();
+    // English POS markers
+    if (/^Idiom$/i.test(t)) return true;
+    if (/^(Ph\.\s*V\.?|Ph\s+V\.?|Phr?\.?\s*V\.?)$/i.test(t)) return true;
+    // Arabic POS markers
+    if (t === "مصطلح") return true;
+    if (t === "فعل مركب") return true;
+    // Combined label like "مصطلح Idiom" or "فعل مركب Ph. V"
+    if (/مصطلح/.test(t)) return true;
+    if (/فعل مركب/.test(t)) return true;
+    return false;
+  });
 }
 
 function isHeaderOrJunk(text: string): boolean {
@@ -146,6 +168,8 @@ function isHeaderOrJunk(text: string): boolean {
     /^©/,
     // Pure POS patterns (standalone English)
     /^(Ph\.\s*V\.?|Ph\s+V|Phr?\.?\s*V\.?)$/i,
+    // Idiom label
+    /^Idiom$/i,
   ];
 
   return patterns.some((p) => p.test(t));
@@ -223,6 +247,9 @@ function extractWordsFromTextItems(items: TextItem[]): WordEntry[] {
     if (currentLine.length > 0) lines.push(currentLine);
 
     for (const line of lines) {
+      // Skip entire rows that are Idioms or Phrasal Verbs — not vocabulary words
+      if (isIdiomOrPhrasalVerbLine(line)) continue;
+
       const englishItems: TextItem[] = [];
       const arabicItems: TextItem[] = [];
       // Separator characters (–, /, ،) kept separately so they are not lost
