@@ -100,7 +100,7 @@ export default function HomePage({
           {/* Title */}
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <BookOpen className="text-primary flex-shrink-0" size={20} />
-            <span className="font-bold text-base text-foreground truncate">مولّد الاختبارات</span>
+            <span className="font-bold text-base text-foreground truncate">عمك محمد عبدالوهاااب</span>
           </div>
 
           {/* Right-side action buttons */}
@@ -185,11 +185,8 @@ export default function HomePage({
           <div>
             <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
               <BookOpen className="text-primary" size={30} />
-              مولّد الاختبارات
+              عمك محمد عبدالوهاااب
             </h1>
-            <p className="text-muted-foreground mt-1 text-sm">
-              ارفع ملف PDF لإنشاء اختبارات تفاعلية
-            </p>
           </div>
           <div className="flex gap-2">
             <button
@@ -217,12 +214,9 @@ export default function HomePage({
           /* Empty state */
           <div className="text-center py-20 bg-card rounded-3xl border border-border mt-2">
             <BookOpen className="mx-auto text-muted-foreground mb-4" size={48} />
-            <h2 className="text-xl font-bold text-foreground mb-2">
+            <h2 className="text-xl font-bold text-foreground mb-6">
               لا توجد اختبارات بعد
             </h2>
-            <p className="text-muted-foreground mb-6 text-sm">
-              ابدأ بإنشاء اختبار جديد أو استيراد اختبار مشارك
-            </p>
             <button
               onClick={onCreateQuiz}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity font-semibold"
@@ -397,6 +391,11 @@ export default function HomePage({
           onClose={() => setHistoryQuiz(null)}
         />
       )}
+
+      {/* ── Footer ── */}
+      <footer className="text-center py-4 text-xs text-muted-foreground border-t border-border">
+        جميع الحقوق محفوظة لـ صالح محمد احمد عبد الوهاب
+      </footer>
 
       {/* Delete confirmation */}
       <AlertDialog.Root
