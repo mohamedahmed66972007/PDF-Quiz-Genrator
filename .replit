@@ -39,7 +39,7 @@ args = "PORT=24311 BASE_PATH=/ pnpm --filter @workspace/quiz-app run dev"
 waitForPort = 24311
 
 [agent]
-stack = "PNPM_WORKSPACE"
+stack = "BEST_EFFORT_FALLBACK"
 expertMode = true
 
 [postMerge]
