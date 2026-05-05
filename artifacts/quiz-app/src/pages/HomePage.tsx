@@ -163,7 +163,7 @@ export default function HomePage({
           {/* Title */}
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <BookOpen className="text-primary flex-shrink-0" size={20} />
-            <span className="font-bold text-base text-foreground truncate">عمك محمد عبدالوهاااب</span>
+            <span className="font-bold text-base text-foreground truncate">MO En Word Exam</span>
           </div>
 
           {/* Right-side action buttons */}
@@ -266,7 +266,7 @@ export default function HomePage({
           <div>
             <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
               <BookOpen className="text-primary" size={30} />
-              عمك محمد عبدالوهاااب
+              MO En Word Exam
             </h1>
           </div>
           <div className="flex gap-2">
