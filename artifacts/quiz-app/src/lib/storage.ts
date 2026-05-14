@@ -25,6 +25,10 @@ export function loadQuizzes(): Quiz[] {
   }
 }
 
+export function saveQuizzesOrder(quizzes: Quiz[]): void {
+  localStorage.setItem(QUIZZES_KEY, JSON.stringify(quizzes));
+}
+
 export function deleteQuiz(id: string): void {
   const quizzes = loadQuizzes().filter((q) => q.id !== id);
   localStorage.setItem(QUIZZES_KEY, JSON.stringify(quizzes));

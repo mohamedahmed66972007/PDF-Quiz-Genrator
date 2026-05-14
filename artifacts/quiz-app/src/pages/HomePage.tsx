@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Quiz } from "../types";
-import { loadQuizzes, deleteQuiz, loadResultsByQuizId, saveQuiz } from "../lib/storage";
+import { loadQuizzes, deleteQuiz, loadResultsByQuizId, saveQuiz, saveQuizzesOrder } from "../lib/storage";
 import { encodeQuizToUrl, encodeAllQuizzesToUrl, copyToClipboard } from "../lib/share";
 import { cn } from "../lib/utils";
 import HistoryModal from "../components/HistoryModal";
@@ -28,6 +28,7 @@ import {
   CheckSquare,
   Square,
   Zap,
+  GripVertical,
 } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 
@@ -88,6 +89,39 @@ export default function HomePage({
   const [mergeMode, setMergeMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [mergeSuccess, setMergeSuccess] = useState(false);
+
+  const dragIndexRef = useRef<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  function handleDragStart(index: number) {
+    dragIndexRef.current = index;
+  }
+
+  function handleDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault();
+    setDragOverIndex(index);
+  }
+
+  function handleDrop(index: number) {
+    const from = dragIndexRef.current;
+    if (from === null || from === index) {
+      dragIndexRef.current = null;
+      setDragOverIndex(null);
+      return;
+    }
+    const reordered = [...quizzes];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(index, 0, moved);
+    saveQuizzesOrder(reordered);
+    setQuizzes(reordered);
+    dragIndexRef.current = null;
+    setDragOverIndex(null);
+  }
+
+  function handleDragEnd() {
+    dragIndexRef.current = null;
+    setDragOverIndex(null);
+  }
 
   useEffect(() => {
     if (!colorPickerOpen) return;
@@ -411,6 +445,11 @@ export default function HomePage({
                     variants={cardVariants}
                     initial="initial"
                     animate="animate"
+                    draggable={!mergeMode}
+                    onDragStart={() => handleDragStart(i)}
+                    onDragOver={(e) => handleDragOver(e, i)}
+                    onDrop={() => handleDrop(i)}
+                    onDragEnd={handleDragEnd}
                     onClick={mergeMode ? () => toggleSelect(quiz.id) : undefined}
                     className={cn(
                       "bg-card border rounded-2xl overflow-hidden transition-all",
@@ -419,7 +458,10 @@ export default function HomePage({
                         : "hover:shadow-md hover:border-primary/30",
                       mergeMode && isSelected
                         ? "border-primary ring-2 ring-primary/30"
-                        : "border-border"
+                        : "border-border",
+                      !mergeMode && dragOverIndex === i
+                        ? "ring-2 ring-primary border-primary scale-[1.01]"
+                        : ""
                     )}
                   >
                     <div className="px-4 pt-4 pb-3">
@@ -431,6 +473,14 @@ export default function HomePage({
                             ) : (
                               <Square size={20} className="text-muted-foreground" />
                             )}
+                          </div>
+                        )}
+                        {!mergeMode && (
+                          <div
+                            className="flex-shrink-0 mt-0.5 cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground transition-colors touch-none"
+                            title="اسحب لإعادة الترتيب"
+                          >
+                            <GripVertical size={18} />
                           </div>
                         )}
 
