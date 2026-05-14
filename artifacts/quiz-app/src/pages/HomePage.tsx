@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Quiz } from "../types";
 import { loadQuizzes, deleteQuiz, loadResultsByQuizId, saveQuiz } from "../lib/storage";
 import { encodeQuizToUrl, encodeAllQuizzesToUrl, copyToClipboard } from "../lib/share";
@@ -26,6 +27,7 @@ import {
   X,
   CheckSquare,
   Square,
+  Zap,
 } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 
@@ -48,6 +50,26 @@ const COLOR_DOTS: Record<ThemeColor, string> = {
   pink: "#ec4899",
 };
 
+const COLOR_LABELS: Record<ThemeColor, string> = {
+  blue: "أزرق",
+  violet: "بنفسجي",
+  green: "أخضر",
+  orange: "برتقالي",
+  red: "أحمر",
+  yellow: "أصفر",
+  teal: "أزرق مائي",
+  pink: "وردي",
+};
+
+const cardVariants = {
+  initial: { opacity: 0, y: 18 },
+  animate: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.06, type: "spring", stiffness: 260, damping: 26 },
+  }),
+};
+
 export default function HomePage({
   onCreateQuiz,
   onEditQuiz,
@@ -63,7 +85,6 @@ export default function HomePage({
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const colorPickerRef = useRef<HTMLDivElement>(null);
 
-  // Merge mode state
   const [mergeMode, setMergeMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [mergeSuccess, setMergeSuccess] = useState(false);
@@ -118,7 +139,6 @@ export default function HomePage({
     const selected = quizzes.filter((q) => selectedIds.has(q.id));
     if (selected.length < 2) return;
 
-    // Combine words, deduplicate by wordId
     const seenIds = new Set<string>();
     const combinedWords = selected.flatMap((q) =>
       q.words.filter((w) => {
@@ -135,10 +155,7 @@ export default function HomePage({
       id: `merged_${Date.now()}`,
       name: `مجمع: ${names}`,
       words: combinedWords,
-      settings: {
-        ...base.settings,
-        wordCount: combinedWords.length,
-      },
+      settings: { ...base.settings, wordCount: combinedWords.length },
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -160,81 +177,81 @@ export default function HomePage({
       {/* ── Mobile Header ── */}
       <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border px-4 py-3 sm:hidden">
         <div className="flex items-center justify-between gap-2">
-          {/* Title */}
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <BookOpen className="text-primary flex-shrink-0" size={20} />
+            <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center flex-shrink-0">
+              <BookOpen size={16} className="text-primary-foreground" />
+            </div>
             <span className="font-bold text-base text-foreground truncate">MO En Word Exam</span>
           </div>
 
-          {/* Right-side action buttons */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            {/* Mode toggle */}
             <button
               onClick={toggleMode}
-              title={theme.mode === "dark" ? "وضع نهاري" : "وضع ليلي"}
               className="w-9 h-9 rounded-xl bg-card border border-border flex items-center justify-center active:scale-95 transition-transform"
             >
               {theme.mode === "dark" ? (
-                <Sun size={17} className="text-yellow-400" />
+                <Sun size={16} className="text-yellow-400" />
               ) : (
-                <Moon size={17} className="text-foreground" />
+                <Moon size={16} className="text-foreground" />
               )}
             </button>
 
-            {/* Color picker */}
             <div className="relative" ref={colorPickerRef}>
               <button
                 onClick={() => setColorPickerOpen((v) => !v)}
-                title="تغيير اللون"
                 className={cn(
-                  "w-9 h-9 rounded-xl bg-card border flex items-center justify-center active:scale-95 transition-transform",
+                  "w-9 h-9 rounded-xl bg-card border flex items-center justify-center active:scale-95 transition-all",
                   colorPickerOpen ? "border-primary bg-primary/10" : "border-border"
                 )}
               >
-                <Palette size={17} className="text-primary" />
+                <Palette size={16} className="text-primary" />
               </button>
 
-              {colorPickerOpen && (
-                <div className="absolute top-full mt-2 left-0 z-50 flex flex-col gap-1 bg-card border border-border rounded-2xl p-2 shadow-xl min-w-[150px]">
-                  {(COLORS as ThemeColor[]).map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => { setColor(c); setColorPickerOpen(false); }}
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-colors text-right w-full",
-                        theme.color === c
-                          ? "bg-primary/10 text-primary"
-                          : "text-foreground active:bg-accent"
-                      )}
-                    >
-                      <div
-                        className="w-3.5 h-3.5 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: COLOR_DOTS[c] }}
-                      />
-                      {c === "blue" ? "أزرق" : c === "violet" ? "بنفسجي" : c === "green" ? "أخضر" : c === "orange" ? "برتقالي" : c === "red" ? "أحمر" : c === "yellow" ? "أصفر" : c === "teal" ? "أزرق مائي" : "وردي"}
-                    </button>
-                  ))}
-                  <div className="border-t border-border mt-0.5 pt-1">
-                    <button
-                      onClick={() => setAutoChange(!theme.autoChange)}
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs w-full text-right transition-colors",
-                        theme.autoChange ? "bg-primary/10 text-primary" : "text-muted-foreground active:bg-accent"
-                      )}
-                    >
-                      <RefreshCw size={11} />
-                      تغيير تلقائي
-                    </button>
-                  </div>
-                </div>
-              )}
+              <AnimatePresence>
+                {colorPickerOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                    transition={{ duration: 0.14 }}
+                    className="absolute top-full mt-2 left-0 z-50 flex flex-col gap-1 bg-card border border-border rounded-2xl p-2 shadow-xl min-w-[160px]"
+                  >
+                    {(COLORS as ThemeColor[]).map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => { setColor(c); setColorPickerOpen(false); }}
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-colors text-right w-full",
+                          theme.color === c
+                            ? "bg-primary/10 text-primary font-semibold"
+                            : "text-foreground active:bg-accent"
+                        )}
+                      >
+                        <div className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: COLOR_DOTS[c] }} />
+                        {COLOR_LABELS[c]}
+                        {theme.color === c && <Check size={13} className="mr-auto" />}
+                      </button>
+                    ))}
+                    <div className="border-t border-border mt-0.5 pt-1">
+                      <button
+                        onClick={() => setAutoChange(!theme.autoChange)}
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs w-full text-right transition-colors",
+                          theme.autoChange ? "bg-primary/10 text-primary" : "text-muted-foreground active:bg-accent"
+                        )}
+                      >
+                        <RefreshCw size={11} />
+                        تغيير تلقائي
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
-            {/* Merge mode toggle (only shown when 2+ quizzes) */}
             {quizzes.length >= 2 && (
               <button
                 onClick={toggleMergeMode}
-                title={mergeMode ? "إلغاء الدمج" : "دمج اختبارات"}
                 className={cn(
                   "w-9 h-9 rounded-xl border flex items-center justify-center active:scale-95 transition-all",
                   mergeMode
@@ -242,18 +259,16 @@ export default function HomePage({
                     : "border-border bg-card"
                 )}
               >
-                {mergeMode ? <X size={17} /> : <GitMerge size={17} />}
+                {mergeMode ? <X size={16} /> : <GitMerge size={16} />}
               </button>
             )}
 
-            {/* Import */}
             {!mergeMode && (
               <button
                 onClick={onImport}
-                title="استيراد اختبار"
                 className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center active:scale-95 transition-transform"
               >
-                <Download size={17} />
+                <Download size={16} />
               </button>
             )}
           </div>
@@ -261,22 +276,29 @@ export default function HomePage({
       </header>
 
       {/* ── Desktop Header ── */}
-      <div className="hidden sm:block max-w-4xl mx-auto px-6 pt-8 pb-4">
+      <div className="hidden sm:block max-w-4xl mx-auto px-6 pt-8 pb-2">
         <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-              <BookOpen className="text-primary" size={30} />
-              MO En Word Exam
-            </h1>
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-primary flex items-center justify-center shadow-sm">
+              <BookOpen size={22} className="text-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black text-foreground leading-tight">
+                MO En Word Exam
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                {quizzes.length > 0 ? `${quizzes.length} اختبار محفوظ` : "لا توجد اختبارات بعد"}
+              </p>
+            </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             {!mergeMode && (
               <>
                 <button
                   onClick={onImport}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card hover:bg-accent transition-colors text-sm font-medium"
                 >
-                  <Download size={16} />
+                  <Download size={15} />
                   استيراد
                 </button>
                 {quizzes.length >= 2 && (
@@ -284,13 +306,13 @@ export default function HomePage({
                     onClick={toggleMergeMode}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card hover:bg-accent transition-colors text-sm font-medium"
                   >
-                    <GitMerge size={16} />
-                    دمج اختبارات
+                    <GitMerge size={15} />
+                    دمج
                   </button>
                 )}
                 <button
                   onClick={onCreateQuiz}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-medium"
+                  className="btn-primary-glow flex items-center gap-2 px-5 py-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all text-sm font-semibold shadow-sm"
                 >
                   <Plus size={16} />
                   اختبار جديد
@@ -302,7 +324,7 @@ export default function HomePage({
                 onClick={toggleMergeMode}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card hover:bg-accent transition-colors text-sm font-medium"
               >
-                <X size={16} />
+                <X size={15} />
                 إلغاء الدمج
               </button>
             )}
@@ -311,46 +333,60 @@ export default function HomePage({
       </div>
 
       {/* ── Merge mode banner ── */}
-      {mergeMode && (
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 mb-2">
-          <div className="bg-primary/10 border border-primary/30 rounded-2xl px-4 py-3 flex items-center gap-3">
-            <GitMerge size={18} className="text-primary flex-shrink-0" />
-            <p className="text-sm text-foreground flex-1">
-              اختر <span className="font-bold text-primary">اختبارَين أو أكثر</span> لدمجهما في اختبار واحد
-            </p>
-            {selectedCount >= 2 && (
-              <span className="text-xs text-primary font-semibold bg-primary/20 px-2 py-0.5 rounded-full">
-                {selectedCount} محدد
-              </span>
-            )}
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {mergeMode && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="max-w-4xl mx-auto px-4 sm:px-6 mt-4 mb-0"
+          >
+            <div className="bg-primary/10 border border-primary/30 rounded-2xl px-4 py-3 flex items-center gap-3">
+              <GitMerge size={17} className="text-primary flex-shrink-0" />
+              <p className="text-sm text-foreground flex-1">
+                اختر <span className="font-bold text-primary">اختبارَين أو أكثر</span> لدمجهما
+              </p>
+              {selectedCount >= 2 && (
+                <span className="text-xs text-primary font-bold bg-primary/20 px-2.5 py-1 rounded-full">
+                  {selectedCount} محدد
+                </span>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Content ── */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 pb-28 sm:pb-10">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-5 pb-28 sm:pb-10">
 
         {quizzes.length === 0 ? (
           /* Empty state */
-          <div className="text-center py-20 bg-card rounded-3xl border border-border mt-2">
-            <BookOpen className="mx-auto text-muted-foreground mb-4" size={48} />
-            <h2 className="text-xl font-bold text-foreground mb-6">
-              لا توجد اختبارات بعد
-            </h2>
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 240, damping: 26 }}
+            className="text-center py-20 bg-card rounded-3xl border border-border mt-3"
+          >
+            <div className="w-16 h-16 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
+              <BookOpen className="text-primary" size={32} />
+            </div>
+            <h2 className="text-xl font-bold text-foreground mb-2">لا توجد اختبارات بعد</h2>
+            <p className="text-sm text-muted-foreground mb-7">أنشئ اختبارك الأول أو استورد من PDF</p>
             <button
               onClick={onCreateQuiz}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity font-semibold"
+              className="btn-primary-glow inline-flex items-center gap-2 px-7 py-3.5 rounded-2xl bg-primary text-primary-foreground hover:opacity-90 transition-all font-bold shadow-sm"
             >
               <Plus size={18} />
               إنشاء اختبار جديد
             </button>
-          </div>
+          </motion.div>
         ) : (
           <>
-            <div className="grid gap-3 sm:gap-4">
-              {quizzes.map((quiz) => {
-                const lastResult = loadResultsByQuizId(quiz.id)[0];
-                const resultCount = loadResultsByQuizId(quiz.id).length;
+            <div className="grid gap-3 sm:gap-4 mt-2">
+              {quizzes.map((quiz, i) => {
+                const results = loadResultsByQuizId(quiz.id);
+                const lastResult = results[0];
+                const resultCount = results.length;
                 const scoreColor = !lastResult
                   ? ""
                   : lastResult.score >= 80
@@ -358,27 +394,36 @@ export default function HomePage({
                   : lastResult.score >= 60
                   ? "text-yellow-600 dark:text-yellow-400"
                   : "text-destructive";
+                const scoreBg = !lastResult
+                  ? ""
+                  : lastResult.score >= 80
+                  ? "bg-green-50 dark:bg-green-950/50 border-green-200 dark:border-green-800"
+                  : lastResult.score >= 60
+                  ? "bg-yellow-50 dark:bg-yellow-950/50 border-yellow-200 dark:border-yellow-800"
+                  : "bg-destructive/5 border-destructive/30";
 
                 const isSelected = selectedIds.has(quiz.id);
 
                 return (
-                  <div
+                  <motion.div
                     key={quiz.id}
+                    custom={i}
+                    variants={cardVariants}
+                    initial="initial"
+                    animate="animate"
                     onClick={mergeMode ? () => toggleSelect(quiz.id) : undefined}
                     className={cn(
                       "bg-card border rounded-2xl overflow-hidden transition-all",
                       mergeMode
                         ? "cursor-pointer select-none"
-                        : "hover:border-primary/40",
+                        : "hover:shadow-md hover:border-primary/30",
                       mergeMode && isSelected
                         ? "border-primary ring-2 ring-primary/30"
                         : "border-border"
                     )}
                   >
-                    {/* Card body */}
                     <div className="px-4 pt-4 pb-3">
                       <div className="flex items-start justify-between gap-2">
-                        {/* Merge mode checkbox */}
                         {mergeMode && (
                           <div className="flex-shrink-0 mt-0.5">
                             {isSelected ? (
@@ -393,114 +438,103 @@ export default function HomePage({
                           {quiz.name}
                         </h3>
 
-                        {/* Desktop action buttons (hidden in merge mode) */}
                         {!mergeMode && (
-                          <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0">
-                            <ActionButton
-                              onClick={() => handleShare(quiz)}
-                              title="مشاركة"
-                              active={copied === quiz.id}
-                            >
-                              {copied === quiz.id ? <Check size={15} /> : <Share2 size={15} />}
+                          <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
+                            <ActionButton onClick={() => handleShare(quiz)} title="مشاركة" active={copied === quiz.id}>
+                              {copied === quiz.id ? <Check size={14} /> : <Share2 size={14} />}
                             </ActionButton>
                             <ActionButton onClick={() => onEditQuiz(quiz)} title="تعديل">
-                              <Edit size={15} />
+                              <Edit size={14} />
                             </ActionButton>
                             <ActionButton
                               onClick={() => setHistoryQuiz(quiz)}
                               title="النتائج السابقة"
                               badge={resultCount > 0 ? resultCount : undefined}
                             >
-                              <History size={15} />
+                              <History size={14} />
                             </ActionButton>
-                            <ActionButton
-                              onClick={() => setDeleteTargetId(quiz.id)}
-                              title="حذف"
-                              danger
-                            >
-                              <Trash2 size={15} />
+                            <ActionButton onClick={() => setDeleteTargetId(quiz.id)} title="حذف" danger>
+                              <Trash2 size={14} />
                             </ActionButton>
                             <button
                               onClick={() => onStartQuiz(quiz)}
-                              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-semibold mr-1"
+                              className="btn-primary-glow flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all text-sm font-bold mr-1 shadow-sm"
                             >
-                              <Play size={14} />
+                              <Play size={13} fill="currentColor" />
                               ابدأ
                             </button>
                           </div>
                         )}
                       </div>
 
-                      {/* Metadata */}
                       <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground flex-wrap">
-                        <span>{quiz.words.length} كلمة</span>
-                        <span>•</span>
-                        <span>
-                          {quiz.settings.type === "mcq" ? "اختيار من متعدد" : "مقالي"}
-                        </span>
-                        <span>•</span>
+                        <span className="font-medium">{quiz.words.length} كلمة</span>
+                        <span className="text-border">•</span>
+                        <span>{quiz.settings.type === "mcq" ? "اختيار متعدد" : "مقالي"}</span>
+                        <span className="text-border">•</span>
                         <span>{new Date(quiz.updatedAt).toLocaleDateString("ar")}</span>
                       </div>
 
-                      {/* Last score */}
                       {lastResult && (
-                        <div className="mt-2 inline-flex items-center gap-1.5 bg-background rounded-lg px-2.5 py-1 border border-border/60">
-                          <span className="text-xs text-muted-foreground">آخر نتيجة:</span>
-                          <span className={cn("text-xs font-bold", scoreColor)}>
-                            {lastResult.score}%
-                          </span>
-                          <span className="text-xs text-muted-foreground">
+                        <div className={cn(
+                          "mt-2.5 inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 border text-xs font-semibold",
+                          scoreBg
+                        )}>
+                          <Zap size={11} className={scoreColor} />
+                          <span className="text-muted-foreground">آخر نتيجة:</span>
+                          <span className={scoreColor}>{lastResult.score}%</span>
+                          <span className="text-muted-foreground opacity-70">
                             ({lastResult.correctCount}/{lastResult.totalQuestions})
                           </span>
                         </div>
                       )}
                     </div>
 
-                    {/* Mobile action bar (hidden in merge mode) */}
                     {!mergeMode && (
                       <div className="sm:hidden flex items-center border-t border-border/60 divide-x divide-x-reverse divide-border/60">
                         <MobileAction onClick={() => handleShare(quiz)} active={copied === quiz.id}>
-                          {copied === quiz.id ? <Check size={16} /> : <Share2 size={16} />}
+                          {copied === quiz.id ? <Check size={15} /> : <Share2 size={15} />}
                         </MobileAction>
                         <MobileAction onClick={() => onEditQuiz(quiz)}>
-                          <Edit size={16} />
+                          <Edit size={15} />
                         </MobileAction>
-                        <MobileAction
-                          onClick={() => setHistoryQuiz(quiz)}
-                          badge={resultCount > 0 ? resultCount : undefined}
-                        >
-                          <History size={16} />
+                        <MobileAction onClick={() => setHistoryQuiz(quiz)} badge={resultCount > 0 ? resultCount : undefined}>
+                          <History size={15} />
                         </MobileAction>
                         <MobileAction onClick={() => setDeleteTargetId(quiz.id)} danger>
-                          <Trash2 size={16} />
+                          <Trash2 size={15} />
                         </MobileAction>
                         <button
                           onClick={() => onStartQuiz(quiz)}
                           className="flex-1 flex items-center justify-center gap-2 py-3 bg-primary text-primary-foreground hover:opacity-90 transition-opacity font-bold text-sm"
                         >
-                          <Play size={16} />
+                          <Play size={15} fill="currentColor" />
                           ابدأ الاختبار
                         </button>
                       </div>
                     )}
-                  </div>
+                  </motion.div>
                 );
               })}
             </div>
 
             {!mergeMode && quizzes.length > 1 && (
-              <div className="mt-4 flex justify-center">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1, transition: { delay: 0.3 } }}
+                className="mt-5 flex justify-center"
+              >
                 <button
                   onClick={handleShareAll}
                   className={cn(
                     "flex items-center gap-2 px-5 py-2.5 rounded-2xl border border-border hover:bg-accent transition-colors text-sm font-medium",
-                    copied === "all" && "border-green-500 text-green-500"
+                    copied === "all" && "border-green-500 text-green-600 bg-green-50 dark:bg-green-950/30"
                   )}
                 >
-                  <Users size={15} />
+                  {copied === "all" ? <Check size={15} /> : <Users size={15} />}
                   {copied === "all" ? "تم النسخ!" : "مشاركة جميع الاختبارات"}
                 </button>
-              </div>
+              </motion.div>
             )}
           </>
         )}
@@ -512,128 +546,117 @@ export default function HomePage({
           className="sm:hidden fixed right-4 z-30"
           style={{ bottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))" }}
         >
-          <button
+          <motion.button
             onClick={onCreateQuiz}
-            className="flex items-center gap-2 px-5 py-3.5 rounded-2xl bg-primary text-primary-foreground shadow-lg hover:opacity-90 transition-opacity font-bold text-sm"
+            whileTap={{ scale: 0.94 }}
+            className="btn-primary-glow flex items-center gap-2 px-5 py-3.5 rounded-2xl bg-primary text-primary-foreground shadow-lg hover:opacity-90 transition-opacity font-bold text-sm"
           >
             <Plus size={20} />
             اختبار جديد
-          </button>
+          </motion.button>
         </div>
       )}
 
-      {/* ── Merge action bar (floating bottom) ── */}
-      {mergeMode && (
-        <div
-          className="fixed inset-x-0 z-40 flex justify-center px-4"
-          style={{ bottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
-        >
-          <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl px-4 py-3 flex items-center gap-3">
-            <span className="text-sm text-muted-foreground flex-1">
-              {selectedCount === 0
-                ? "اختر اختبارات للدمج"
-                : selectedCount === 1
-                ? "اختر اختبار آخر على الأقل"
-                : `${selectedCount} اختبارات محددة`}
-            </span>
-            <button
-              onClick={toggleMergeMode}
-              className="px-3 py-2 rounded-xl border border-border text-sm font-semibold hover:bg-accent transition-colors"
-            >
-              إلغاء
-            </button>
-            <button
-              onClick={handleMerge}
-              disabled={selectedCount < 2}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all",
-                selectedCount >= 2
-                  ? "bg-primary text-primary-foreground hover:opacity-90"
-                  : "bg-muted text-muted-foreground cursor-not-allowed"
-              )}
-            >
-              <GitMerge size={16} />
-              دمج
-            </button>
-          </div>
-        </div>
-      )}
+      {/* ── Merge floating bar ── */}
+      <AnimatePresence>
+        {mergeMode && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed inset-x-0 z-40 flex justify-center px-4"
+            style={{ bottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
+          >
+            <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl px-4 py-3 flex items-center gap-3">
+              <span className="text-sm text-muted-foreground flex-1">
+                {selectedCount === 0
+                  ? "اختر اختبارات للدمج"
+                  : selectedCount === 1
+                  ? "اختر اختبار آخر على الأقل"
+                  : `${selectedCount} اختبارات محددة`}
+              </span>
+              <button
+                onClick={toggleMergeMode}
+                className="px-3 py-2 rounded-xl border border-border text-sm font-semibold hover:bg-accent transition-colors"
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={handleMerge}
+                disabled={selectedCount < 2}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all",
+                  selectedCount >= 2
+                    ? "bg-primary text-primary-foreground hover:opacity-90 btn-primary-glow"
+                    : "bg-muted text-muted-foreground cursor-not-allowed"
+                )}
+              >
+                <GitMerge size={15} />
+                دمج
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Copy toast */}
-      {copied && (
-        <div
-          className="fixed left-1/2 -translate-x-1/2 bg-foreground text-background px-4 py-2 rounded-full text-sm font-medium shadow-lg z-50"
-          style={{ bottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))" }}
-        >
-          تم نسخ الرابط!
-        </div>
-      )}
+      <AnimatePresence>
+        {copied && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, x: "-50%" }}
+            animate={{ opacity: 1, y: 0, x: "-50%" }}
+            exit={{ opacity: 0, y: 8, x: "-50%" }}
+            className="fixed left-1/2 bottom-24 sm:bottom-8 bg-foreground text-background px-5 py-2.5 rounded-full text-sm font-semibold shadow-lg z-50 flex items-center gap-2"
+          >
+            <Check size={14} />
+            تم نسخ الرابط
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Merge success toast */}
-      {mergeSuccess && (
-        <div
-          className="fixed left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-5 py-2.5 rounded-full text-sm font-bold shadow-lg z-50 flex items-center gap-2"
-          style={{ bottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))" }}
-        >
-          <Check size={16} />
-          تم إنشاء الاختبار المجمع!
-        </div>
-      )}
+      <AnimatePresence>
+        {mergeSuccess && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, x: "-50%" }}
+            animate={{ opacity: 1, y: 0, x: "-50%" }}
+            exit={{ opacity: 0, y: 8, x: "-50%" }}
+            className="fixed left-1/2 bottom-24 sm:bottom-8 bg-green-600 text-white px-5 py-2.5 rounded-full text-sm font-semibold shadow-lg z-50 flex items-center gap-2"
+          >
+            <Check size={14} />
+            تم الدمج بنجاح!
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* History Modal */}
-      {historyQuiz && (
-        <HistoryModal
-          quizId={historyQuiz.id}
-          quizName={historyQuiz.name}
-          onClose={() => setHistoryQuiz(null)}
-          onRetryWrong={(result) => {
-            setHistoryQuiz(null);
-            onRetryWrong(result);
-          }}
-        />
-      )}
-
-      {/* ── Footer ── */}
-      <footer className="text-center py-4 text-xs text-muted-foreground border-t border-border">
-        جميع الحقوق محفوظة لـ صالح محمد احمد عبد الوهاب
-      </footer>
-
-      {/* Delete confirmation */}
+      {/* Delete dialog */}
       <AlertDialog.Root
-        open={deleteTargetId !== null}
+        open={!!deleteTargetId}
         onOpenChange={(open) => { if (!open) setDeleteTargetId(null); }}
       >
         <AlertDialog.Portal>
-          <AlertDialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+          <AlertDialog.Overlay className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm" />
           <AlertDialog.Content
             dir="rtl"
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[calc(100%-2rem)] max-w-sm bg-card border border-border rounded-3xl shadow-2xl p-5"
+            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-card border border-border rounded-2xl p-6 w-[90vw] max-w-sm shadow-2xl"
           >
-            <div className="flex items-start gap-4 mb-5">
-              <div className="flex-shrink-0 w-10 h-10 rounded-2xl bg-destructive/10 flex items-center justify-center">
-                <AlertTriangle className="text-destructive" size={20} />
-              </div>
-              <div>
-                <AlertDialog.Title className="text-base font-bold text-foreground mb-1">
-                  حذف الاختبار
-                </AlertDialog.Title>
-                <AlertDialog.Description className="text-muted-foreground text-sm leading-relaxed">
-                  هل أنت متأكد من حذف{" "}
-                  <span className="font-semibold text-foreground">"{deleteTargetName}"</span>؟
-                  {" "}لا يمكن التراجع عن هذا الإجراء.
-                </AlertDialog.Description>
-              </div>
-            </div>
-            <div className="flex gap-2">
+            <AlertDialog.Title className="font-bold text-lg text-foreground mb-2">
+              حذف الاختبار
+            </AlertDialog.Title>
+            <AlertDialog.Description className="text-sm text-muted-foreground mb-5">
+              هل أنت متأكد من حذف <span className="font-semibold text-foreground">"{deleteTargetName}"</span>؟
+              لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialog.Description>
+            <div className="flex gap-3 justify-end">
               <AlertDialog.Cancel asChild>
-                <button className="flex-1 py-2.5 rounded-xl border border-border bg-card text-foreground hover:bg-accent transition-colors text-sm font-semibold">
+                <button className="px-4 py-2 rounded-xl border border-border bg-card hover:bg-accent transition-colors text-sm font-semibold">
                   إلغاء
                 </button>
               </AlertDialog.Cancel>
               <AlertDialog.Action asChild>
                 <button
                   onClick={confirmDelete}
-                  className="flex-1 py-2.5 rounded-xl bg-destructive text-white hover:opacity-90 transition-opacity text-sm font-semibold"
+                  className="px-4 py-2 rounded-xl bg-destructive text-destructive-foreground hover:opacity-90 transition-opacity text-sm font-semibold"
                 >
                   حذف
                 </button>
@@ -642,26 +665,35 @@ export default function HomePage({
           </AlertDialog.Content>
         </AlertDialog.Portal>
       </AlertDialog.Root>
+
+      {historyQuiz && (
+        <HistoryModal
+          quiz={historyQuiz}
+          onClose={() => setHistoryQuiz(null)}
+          onRetryWrong={(result) => {
+            setHistoryQuiz(null);
+            onRetryWrong(result);
+          }}
+        />
+      )}
     </div>
   );
 }
 
-/* ── Helper components ── */
-
 function ActionButton({
-  children,
   onClick,
   title,
   danger,
   active,
   badge,
+  children,
 }: {
-  children: React.ReactNode;
   onClick: () => void;
-  title?: string;
+  title: string;
   danger?: boolean;
   active?: boolean;
   badge?: number;
+  children: React.ReactNode;
 }) {
   return (
     <div className="relative">
@@ -669,18 +701,18 @@ function ActionButton({
         onClick={onClick}
         title={title}
         className={cn(
-          "p-2 rounded-xl border transition-colors",
-          danger
-            ? "border-border hover:bg-destructive/10 hover:border-destructive/50 hover:text-destructive"
-            : active
-            ? "border-green-500 text-green-500 bg-green-50 dark:bg-green-950/20"
-            : "border-border hover:bg-accent"
+          "w-8 h-8 rounded-lg flex items-center justify-center transition-all text-sm",
+          active
+            ? "bg-green-50 dark:bg-green-950/50 text-green-600"
+            : danger
+            ? "text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            : "text-muted-foreground hover:bg-accent hover:text-foreground"
         )}
       >
         {children}
       </button>
       {badge !== undefined && (
-        <span className="absolute -top-1.5 -left-1.5 min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
           {badge > 9 ? "9+" : badge}
         </span>
       )}
@@ -689,35 +721,35 @@ function ActionButton({
 }
 
 function MobileAction({
-  children,
   onClick,
-  danger,
   active,
+  danger,
   badge,
+  children,
 }: {
-  children: React.ReactNode;
   onClick: () => void;
-  danger?: boolean;
   active?: boolean;
+  danger?: boolean;
   badge?: number;
+  children: React.ReactNode;
 }) {
   return (
-    <div className="relative">
+    <div className="relative flex-1">
       <button
         onClick={onClick}
         className={cn(
-          "w-12 h-12 flex items-center justify-center transition-colors",
-          danger
-            ? "text-muted-foreground hover:text-destructive hover:bg-destructive/5"
-            : active
-            ? "text-green-500"
-            : "text-muted-foreground hover:text-foreground hover:bg-accent"
+          "w-full flex items-center justify-center py-3 transition-colors",
+          active
+            ? "text-green-600"
+            : danger
+            ? "text-muted-foreground active:text-destructive"
+            : "text-muted-foreground active:bg-accent"
         )}
       >
         {children}
       </button>
       {badge !== undefined && (
-        <span className="absolute top-1 right-1 min-w-[14px] h-3.5 px-0.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
+        <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
           {badge > 9 ? "9+" : badge}
         </span>
       )}

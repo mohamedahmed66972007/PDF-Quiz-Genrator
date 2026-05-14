@@ -629,6 +629,17 @@ const COLOR_VARS: Record<ThemeColor, { light: Record<string, string>; dark: Reco
   },
 };
 
+const THEME_DESIGN: Record<ThemeColor, { radius: string; glow: string }> = {
+  blue:   { radius: "0.75rem",  glow: "0 0 0 3px rgba(59,130,246,0.25)" },
+  violet: { radius: "0.5rem",   glow: "0 0 0 3px rgba(124,58,237,0.25)" },
+  green:  { radius: "1rem",     glow: "0 0 0 3px rgba(22,163,74,0.22)" },
+  orange: { radius: "0.375rem", glow: "0 0 0 3px rgba(249,115,22,0.28)" },
+  red:    { radius: "0.375rem", glow: "0 0 0 3px rgba(239,68,68,0.28)" },
+  yellow: { radius: "1.5rem",   glow: "0 0 0 3px rgba(234,179,8,0.28)" },
+  teal:   { radius: "0.625rem", glow: "0 0 0 3px rgba(13,148,136,0.22)" },
+  pink:   { radius: "1.25rem",  glow: "0 0 0 3px rgba(236,72,153,0.25)" },
+};
+
 function applyTheme(theme: AppTheme) {
   const root = document.documentElement;
   const vars = COLOR_VARS[theme.color][theme.mode];
@@ -640,6 +651,11 @@ function applyTheme(theme: AppTheme) {
   } else {
     root.classList.remove("dark");
   }
+
+  const design = THEME_DESIGN[theme.color];
+  root.style.setProperty("--radius", design.radius);
+  root.style.setProperty("--primary-glow", design.glow);
+  root.setAttribute("data-theme-color", theme.color);
 
   const primaryHsl = vars["--primary"];
   if (primaryHsl) {
