@@ -19,6 +19,32 @@ import {
 } from "lucide-react";
 import { cn } from "../lib/utils";
 
+async function parseJsonFile(file: File): Promise<WordEntry[]> {
+  const text = await file.text();
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error("ملف JSON غير صالح");
+  }
+  if (typeof data !== "object" || data === null || Array.isArray(data)) {
+    throw new Error("تنسيق JSON غير مدعوم. يجب أن يكون { \"كلمة\": [\"معنى\"] }");
+  }
+  const entries: WordEntry[] = [];
+  for (const [word, meanings] of Object.entries(data as Record<string, unknown>)) {
+    if (!word.trim()) continue;
+    let meaningList: string[] = [];
+    if (Array.isArray(meanings)) {
+      meaningList = meanings.filter((m) => typeof m === "string" && m.trim());
+    } else if (typeof meanings === "string" && meanings.trim()) {
+      meaningList = [meanings.trim()];
+    }
+    if (meaningList.length === 0) continue;
+    entries.push({ id: nanoid(), word: word.trim(), meanings: meaningList });
+  }
+  return entries;
+}
+
 interface CreateEditPageProps {
   existingQuiz?: Quiz;
   onBack: () => void;
@@ -49,14 +75,18 @@ export default function CreateEditPage({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileDrop = useCallback(async (file: File) => {
-    if (!file.type.includes("pdf")) {
-      setError("يرجى رفع ملف PDF فقط");
+    const isPdf = file.type.includes("pdf") || file.name.endsWith(".pdf");
+    const isJson = file.type.includes("json") || file.name.endsWith(".json");
+    if (!isPdf && !isJson) {
+      setError("يرجى رفع ملف PDF أو JSON فقط");
       return;
     }
     setLoading(true);
     setError("");
     try {
-      const extracted = await parsePdfFile(file);
+      const extracted = isPdf
+        ? await parsePdfFile(file)
+        : await parseJsonFile(file);
       if (extracted.length === 0) {
         setError(
           "لم يتم العثور على كلمات في الملف. تأكد من أن الملف يحتوي على كلمات إنجليزية ومعاني عربية."
@@ -70,11 +100,17 @@ export default function CreateEditPage({
           return [...prev, ...newWords];
         });
         if (!name && extracted.length > 0) {
-          setName(file.name.replace(".pdf", "").replace(/[_-]/g, " "));
+          setName(
+            file.name
+              .replace(/\.(pdf|json)$/i, "")
+              .replace(/[_-]/g, " ")
+          );
         }
       }
     } catch (e) {
-      setError("حدث خطأ أثناء قراءة الملف");
+      setError(
+        e instanceof Error ? e.message : "حدث خطأ أثناء قراءة الملف"
+      );
     } finally {
       setLoading(false);
     }
@@ -227,7 +263,7 @@ export default function CreateEditPage({
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf"
+            accept=".pdf,.json"
             className="hidden"
             onChange={handleFileChange}
           />
@@ -241,10 +277,10 @@ export default function CreateEditPage({
               <Upload className="text-muted-foreground" size={36} />
               <div>
                 <p className="font-medium text-foreground">
-                  اسحب ملف PDF هنا أو انقر للاختيار
+                  اسحب ملف PDF أو JSON هنا أو انقر للاختيار
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  يدعم ملفات المفردات الإنجليزية-العربية
+                  يدعم ملفات PDF والقواميس بصيغة JSON
                 </p>
               </div>
             </div>
