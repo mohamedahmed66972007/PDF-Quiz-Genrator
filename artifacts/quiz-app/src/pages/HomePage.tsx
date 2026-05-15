@@ -718,7 +718,8 @@ export default function HomePage({
 
       {historyQuiz && (
         <HistoryModal
-          quiz={historyQuiz}
+          quizId={historyQuiz.id}
+          quizName={historyQuiz.name}
           onClose={() => setHistoryQuiz(null)}
           onRetryWrong={(result) => {
             setHistoryQuiz(null);
