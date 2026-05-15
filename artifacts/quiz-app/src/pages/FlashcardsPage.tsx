@@ -131,10 +131,10 @@ export default function FlashcardsPage({ quiz, onBack }: FlashcardsPageProps) {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (showList) return;
-      if (e.key === "a" || e.key === "A") goPrev();
-      if (e.key === "d" || e.key === "D") goNext();
-      if (e.key === " ") { e.preventDefault(); handleSpeak(); }
-      if (e.key === "Enter") toggleMemorized();
+      if (e.code === "KeyA") goNext();
+      if (e.code === "KeyD") goPrev();
+      if (e.code === "Space") { e.preventDefault(); handleSpeak(); }
+      if (e.code === "Enter") toggleMemorized();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -336,7 +336,7 @@ export default function FlashcardsPage({ quiz, onBack }: FlashcardsPageProps) {
 
           {/* Hint */}
           <p className="text-xs text-muted-foreground/60 text-center">
-            Space للاستماع • Enter للحفظ • A للسابق • D للتالي
+            Space للاستماع • Enter للحفظ • A للتالي • D للسابق
           </p>
         </div>
       )}
