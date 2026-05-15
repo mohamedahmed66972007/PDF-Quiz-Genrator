@@ -1,6 +1,6 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Quiz, WordEntry } from "../types";
+import { Quiz } from "../types";
 import { cn } from "../lib/utils";
 import {
   ArrowRight,
@@ -19,20 +19,53 @@ interface FlashcardsPageProps {
   onBack: () => void;
 }
 
-function speak(word: string) {
+let currentAudio: HTMLAudioElement | null = null;
+
+function speakWord(word: string, onDone?: () => void) {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.src = "";
+    currentAudio = null;
+  }
+  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+
+  const gttsUrl =
+    `https://translate.google.com/translate_tts?ie=UTF-8` +
+    `&q=${encodeURIComponent(word)}&tl=en-US&client=tw-ob`;
+
+  const audio = new Audio(gttsUrl);
+  currentAudio = audio;
+  audio.volume = 1;
+  audio.playbackRate = 0.92;
+
+  const finish = () => { if (onDone) onDone(); };
+  audio.addEventListener("ended", finish);
+  audio.addEventListener("error", () => {
+    fallbackSpeak(word);
+    finish();
+  });
+
+  audio.play().catch(() => {
+    fallbackSpeak(word);
+    finish();
+  });
+}
+
+function fallbackSpeak(word: string) {
   if (!("speechSynthesis" in window)) return;
   window.speechSynthesis.cancel();
   const utter = new SpeechSynthesisUtterance(word);
   utter.lang = "en-US";
-  utter.rate = 0.85;
+  utter.rate = 0.88;
   utter.pitch = 1;
 
   const voices = window.speechSynthesis.getVoices();
-  const enVoice =
-    voices.find((v) => v.lang === "en-US" && v.localService) ||
-    voices.find((v) => v.lang === "en-US") ||
-    voices.find((v) => v.lang.startsWith("en"));
-  if (enVoice) utter.voice = enVoice;
+  const pick =
+    voices.find((v) => /google/i.test(v.name) && /en.US/i.test(v.lang)) ||
+    voices.find((v) => /microsoft/i.test(v.name) && /en.US/i.test(v.lang)) ||
+    voices.find((v) => /en.US/i.test(v.lang)) ||
+    voices.find((v) => /^en/i.test(v.lang));
+  if (pick) utter.voice = pick;
 
   window.speechSynthesis.speak(utter);
 }
@@ -45,15 +78,12 @@ export default function FlashcardsPage({ quiz, onBack }: FlashcardsPageProps) {
   const [showMeanings, setShowMeanings] = useState(true);
   const [direction, setDirection] = useState<1 | -1>(1);
   const [speaking, setSpeaking] = useState(false);
-  const voicesLoaded = useRef(false);
 
   useEffect(() => {
-    if ("speechSynthesis" in window) {
-      const load = () => { voicesLoaded.current = true; };
-      window.speechSynthesis.addEventListener("voiceschanged", load);
-      window.speechSynthesis.getVoices();
-      return () => window.speechSynthesis.removeEventListener("voiceschanged", load);
-    }
+    return () => {
+      if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    };
   }, []);
 
   const current = words[index];
@@ -88,8 +118,7 @@ export default function FlashcardsPage({ quiz, onBack }: FlashcardsPageProps) {
 
   function handleSpeak() {
     setSpeaking(true);
-    speak(current.word);
-    setTimeout(() => setSpeaking(false), 1200);
+    speakWord(current.word, () => setSpeaking(false));
   }
 
   function resetMemorized() {
@@ -99,11 +128,11 @@ export default function FlashcardsPage({ quiz, onBack }: FlashcardsPageProps) {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (showList) return;
-      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        if (e.key === "ArrowRight") goPrev();
-        else goNext();
-      }
+      if (e.key === "a" || e.key === "A") goPrev();
+      if (e.key === "d" || e.key === "D") goNext();
       if (e.key === " ") { e.preventDefault(); handleSpeak(); }
       if (e.key === "Enter") toggleMemorized();
     }
@@ -307,7 +336,7 @@ export default function FlashcardsPage({ quiz, onBack }: FlashcardsPageProps) {
 
           {/* Hint */}
           <p className="text-xs text-muted-foreground/60 text-center">
-            اضغط الفضاء للاستماع • Enter للحفظ • ← → للتنقل
+            Space للاستماع • Enter للحفظ • A للسابق • D للتالي
           </p>
         </div>
       )}
