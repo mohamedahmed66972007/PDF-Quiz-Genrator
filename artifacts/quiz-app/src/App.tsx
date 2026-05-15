@@ -8,6 +8,7 @@ import CreateEditPage from "./pages/CreateEditPage";
 import QuizPage from "./pages/QuizPage";
 import ResultsPage from "./pages/ResultsPage";
 import ImportPage from "./pages/ImportPage";
+import FlashcardsPage from "./pages/FlashcardsPage";
 
 type Page =
   | { name: "home" }
@@ -15,7 +16,8 @@ type Page =
   | { name: "edit"; quiz: Quiz }
   | { name: "quiz"; quiz: Quiz }
   | { name: "results"; result: QuizResult; quiz: Quiz }
-  | { name: "import"; encoded?: string; encodedAll?: string };
+  | { name: "import"; encoded?: string; encodedAll?: string }
+  | { name: "flashcards"; quiz: Quiz };
 
 const SESSION_KEY = "quiz_app_current_page";
 
@@ -133,6 +135,7 @@ export default function App() {
             onCreateQuiz={() => setPage({ name: "create" })}
             onEditQuiz={(quiz) => setPage({ name: "edit", quiz })}
             onStartQuiz={(quiz) => setPage({ name: "quiz", quiz })}
+            onFlashcards={(quiz) => setPage({ name: "flashcards", quiz })}
             onImport={() => setPage({ name: "import" })}
             onRetryWrong={handleRetryWrong}
           />
@@ -178,6 +181,13 @@ export default function App() {
             onBack={goHome}
             initialEncoded={page.encoded}
             initialEncodedAll={page.encodedAll}
+          />
+        )}
+
+        {page.name === "flashcards" && (
+          <FlashcardsPage
+            quiz={page.quiz}
+            onBack={goHome}
           />
         )}
       </div>

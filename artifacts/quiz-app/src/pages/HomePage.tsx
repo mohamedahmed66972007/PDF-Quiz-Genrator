@@ -36,6 +36,7 @@ interface HomePageProps {
   onCreateQuiz: () => void;
   onEditQuiz: (quiz: Quiz) => void;
   onStartQuiz: (quiz: Quiz) => void;
+  onFlashcards: (quiz: Quiz) => void;
   onImport: () => void;
   onRetryWrong: (result: QuizResult) => void;
 }
@@ -75,6 +76,7 @@ export default function HomePage({
   onCreateQuiz,
   onEditQuiz,
   onStartQuiz,
+  onFlashcards,
   onImport,
   onRetryWrong,
 }: HomePageProps) {
@@ -507,8 +509,15 @@ export default function HomePage({
                               <Trash2 size={14} />
                             </ActionButton>
                             <button
+                              onClick={() => onFlashcards(quiz)}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border bg-card hover:bg-accent transition-colors text-sm font-semibold mr-1"
+                            >
+                              <BookOpen size={13} />
+                              حفظ
+                            </button>
+                            <button
                               onClick={() => onStartQuiz(quiz)}
-                              className="btn-primary-glow flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all text-sm font-bold mr-1 shadow-sm"
+                              className="btn-primary-glow flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all text-sm font-bold shadow-sm"
                             >
                               <Play size={13} fill="currentColor" />
                               ابدأ
@@ -555,11 +564,18 @@ export default function HomePage({
                           <Trash2 size={15} />
                         </MobileAction>
                         <button
+                          onClick={() => onFlashcards(quiz)}
+                          className="flex-1 flex items-center justify-center gap-2 py-3 border-r border-border/60 bg-card hover:bg-accent transition-colors font-semibold text-sm text-foreground"
+                        >
+                          <BookOpen size={15} />
+                          حفظ
+                        </button>
+                        <button
                           onClick={() => onStartQuiz(quiz)}
                           className="flex-1 flex items-center justify-center gap-2 py-3 bg-primary text-primary-foreground hover:opacity-90 transition-opacity font-bold text-sm"
                         >
                           <Play size={15} fill="currentColor" />
-                          ابدأ الاختبار
+                          ابدأ
                         </button>
                       </div>
                     )}
