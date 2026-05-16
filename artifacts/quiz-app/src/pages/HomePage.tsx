@@ -180,6 +180,8 @@ export default function HomePage({
   const [historyQuiz, setHistoryQuiz] = useState<Quiz | null>(null);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const colorPickerRef = useRef<HTMLDivElement>(null);
+  const desktopPickerRef = useRef<HTMLDivElement>(null);
+  const [desktopPickerOpen, setDesktopPickerOpen] = useState(false);
 
   const [mergeMode, setMergeMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -228,6 +230,17 @@ export default function HomePage({
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
   }, [colorPickerOpen]);
+
+  useEffect(() => {
+    if (!desktopPickerOpen) return;
+    function handleOutside(e: MouseEvent) {
+      if (desktopPickerRef.current && !desktopPickerRef.current.contains(e.target as Node)) {
+        setDesktopPickerOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [desktopPickerOpen]);
 
   function confirmDelete() {
     if (!deleteTargetId) return;
@@ -405,7 +418,7 @@ export default function HomePage({
       </header>
 
       {/* ── Desktop Header ── */}
-      <div className="hidden sm:block max-w-4xl mx-auto px-6 pt-8 pb-2">
+      <div className="hidden sm:block px-6 pt-6 pb-2">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-2xl bg-primary flex items-center justify-center shadow-sm">
@@ -457,6 +470,75 @@ export default function HomePage({
                 إلغاء الدمج
               </button>
             )}
+
+            {/* Separator */}
+            <div className="w-px h-6 bg-border" />
+
+            {/* Dark / Light mode toggle */}
+            <button
+              onClick={toggleMode}
+              title={theme.mode === "dark" ? "وضع نهاري" : "وضع ليلي"}
+              className="w-9 h-9 rounded-xl bg-card border border-border flex items-center justify-center hover:bg-accent transition-colors"
+            >
+              {theme.mode === "dark"
+                ? <Sun size={16} className="text-yellow-400" />
+                : <Moon size={16} className="text-foreground" />}
+            </button>
+
+            {/* Color / theme picker */}
+            <div className="relative" ref={desktopPickerRef}>
+              <button
+                onClick={() => setDesktopPickerOpen((v) => !v)}
+                title="تغيير اللون"
+                className={cn(
+                  "w-9 h-9 rounded-xl bg-card border flex items-center justify-center hover:bg-accent transition-all",
+                  desktopPickerOpen ? "border-primary bg-primary/10" : "border-border"
+                )}
+              >
+                <Palette size={16} className="text-primary" />
+              </button>
+
+              <AnimatePresence>
+                {desktopPickerOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                    transition={{ duration: 0.14 }}
+                    className="absolute top-full mt-2 left-0 z-50 flex flex-col gap-1 bg-card border border-border rounded-2xl p-2 shadow-xl min-w-[160px]"
+                  >
+                    {(COLORS as ThemeColor[]).map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => { setColor(c); setDesktopPickerOpen(false); }}
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-colors text-right w-full",
+                          theme.color === c
+                            ? "bg-primary/10 text-primary font-semibold"
+                            : "text-foreground hover:bg-accent"
+                        )}
+                      >
+                        <div className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: COLOR_DOTS[c] }} />
+                        {COLOR_LABELS[c]}
+                        {theme.color === c && <Check size={13} className="mr-auto" />}
+                      </button>
+                    ))}
+                    <div className="border-t border-border mt-0.5 pt-1">
+                      <button
+                        onClick={() => setAutoChange(!theme.autoChange)}
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs w-full text-right transition-colors",
+                          theme.autoChange ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent"
+                        )}
+                      >
+                        <RefreshCw size={11} />
+                        تغيير تلقائي
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       </div>
@@ -468,7 +550,7 @@ export default function HomePage({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="max-w-4xl mx-auto px-4 sm:px-6 mt-4 mb-0"
+            className="px-4 sm:px-6 mt-4 mb-0"
           >
             <div className="bg-primary/10 border border-primary/30 rounded-2xl px-4 py-3 flex items-center gap-3">
               <GitMerge size={17} className="text-primary flex-shrink-0" />
@@ -486,7 +568,7 @@ export default function HomePage({
       </AnimatePresence>
 
       {/* ── Content ── */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-5 pb-28 sm:pb-10">
+      <div className="px-4 sm:px-6 py-4 sm:py-5 pb-28 sm:pb-10">
 
         {quizzes.length === 0 ? (
           /* Empty state */
