@@ -99,21 +99,14 @@ function QuizCover({
   const pid = `p${gid}`;
   const H = 130;
 
-  const lines: string[] = [];
-  const wds = name.split(/\s+/);
-  let line = "";
-  for (const w of wds) {
-    const test = line ? `${line} ${w}` : w;
-    if (test.length > 16 && line) { lines.push(line); line = w; }
-    else line = test;
-  }
-  if (line) lines.push(line);
-  const lineH = 26;
-  const blockH = lines.length * lineH;
-  const startY = (H - blockH) / 2 + lineH * 0.8;
+  const isArabic = /[\u0600-\u06FF]/.test(name);
+  const fontFamily = isArabic
+    ? "'Tajawal', sans-serif"
+    : "'Montserrat', sans-serif";
 
   return (
     <div className="w-full relative overflow-hidden rounded-t-2xl" style={{ height: H }}>
+      {/* Gradient SVG background */}
       <svg width="100%" height={H} xmlns="http://www.w3.org/2000/svg" className="absolute inset-0">
         <defs>
           <linearGradient id={gid} x1="0%" y1="0%" x2="100%" y2="100%">
@@ -129,34 +122,45 @@ function QuizCover({
         <circle cx="92%" cy="-10%" r="90" fill="white" fillOpacity="0.06" />
         <circle cx="-4%" cy="110%" r="70" fill="white" fillOpacity="0.05" />
         <circle cx="50%" cy="50%" r="120" fill="white" fillOpacity="0.03" />
-        {lines.map((l, li) => (
-          <text
-            key={li}
-            x="50%"
-            y={startY + li * lineH}
-            textAnchor="middle"
-            fill="white"
-            fontSize="18"
-            fontWeight="900"
-            fontFamily="system-ui, -apple-system, sans-serif"
-            style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.45))" }}
-          >
-            {l}
-          </text>
-        ))}
-        <text
-          x="50%"
-          y={H - 9}
-          textAnchor="middle"
-          fill="white"
-          fillOpacity="0.65"
-          fontSize="10"
-          fontWeight="500"
-          fontFamily="system-ui, -apple-system, sans-serif"
+      </svg>
+
+      {/* Text overlay using real fonts */}
+      <div
+        className="absolute inset-0 flex flex-col items-center justify-center px-3 pb-4"
+        dir={isArabic ? "rtl" : "ltr"}
+      >
+        <p
+          style={{
+            fontFamily,
+            fontWeight: 900,
+            fontSize: "1.15rem",
+            color: "white",
+            textAlign: "center",
+            lineHeight: 1.3,
+            letterSpacing: isArabic ? "0" : "0.04em",
+            textTransform: isArabic ? "none" : "uppercase",
+            textShadow: "0 2px 8px rgba(0,0,0,0.45)",
+            wordBreak: "break-word",
+          }}
+        >
+          {name}
+        </p>
+      </div>
+
+      {/* Word count badge */}
+      <div className="absolute bottom-2 left-0 right-0 flex justify-center">
+        <span
+          style={{
+            fontFamily: isArabic ? "'Tajawal', sans-serif" : "'Inter', sans-serif",
+            fontSize: "0.65rem",
+            fontWeight: 500,
+            color: "rgba(255,255,255,0.68)",
+            letterSpacing: "0.03em",
+          }}
         >
           {wordCount} كلمة
-        </text>
-      </svg>
+        </span>
+      </div>
     </div>
   );
 }
