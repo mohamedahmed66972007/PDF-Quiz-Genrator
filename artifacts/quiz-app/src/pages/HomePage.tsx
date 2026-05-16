@@ -72,6 +72,91 @@ const cardVariants = {
   }),
 };
 
+const COVER_GRADIENTS = [
+  { from: "#6366f1", to: "#8b5cf6" },
+  { from: "#3b82f6", to: "#0ea5e9" },
+  { from: "#10b981", to: "#06b6d4" },
+  { from: "#f59e0b", to: "#ef4444" },
+  { from: "#ec4899", to: "#8b5cf6" },
+  { from: "#14b8a6", to: "#3b82f6" },
+  { from: "#f97316", to: "#eab308" },
+  { from: "#0f172a", to: "#1e40af" },
+];
+
+function hashStr(str: string): number {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function QuizCover({ name, quizId, wordCount }: { name: string; quizId: string; wordCount: number }) {
+  const idx = hashStr(quizId) % COVER_GRADIENTS.length;
+  const grad = COVER_GRADIENTS[idx];
+  const gid = `g${quizId.replace(/\W/g, "").slice(0, 12)}`;
+  const pid = `p${gid}`;
+
+  const lines: string[] = [];
+  const words = name.split(/\s+/);
+  let line = "";
+  for (const w of words) {
+    const test = line ? `${line} ${w}` : w;
+    if (test.length > 18 && line) { lines.push(line); line = w; }
+    else line = test;
+  }
+  if (line) lines.push(line);
+  const totalLines = lines.length;
+  const lineHeight = 26;
+  const blockH = totalLines * lineHeight;
+  const startY = (96 - blockH) / 2 + lineHeight * 0.75;
+
+  return (
+    <div className="w-full h-24 relative overflow-hidden rounded-t-2xl">
+      <svg width="100%" height="96" xmlns="http://www.w3.org/2000/svg" className="absolute inset-0">
+        <defs>
+          <linearGradient id={gid} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={grad.from} />
+            <stop offset="100%" stopColor={grad.to} />
+          </linearGradient>
+          <pattern id={pid} x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse">
+            <circle cx="2" cy="2" r="1.2" fill="white" fillOpacity="0.1" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill={`url(#${gid})`} />
+        <rect width="100%" height="100%" fill={`url(#${pid})`} />
+        <circle cx="92%" cy="18%" r="72" fill="white" fillOpacity="0.05" />
+        <circle cx="4%" cy="85%" r="52" fill="white" fillOpacity="0.05" />
+        {lines.map((l, li) => (
+          <text
+            key={li}
+            x="50%"
+            y={startY + li * lineHeight}
+            textAnchor="middle"
+            fill="white"
+            fontSize="18"
+            fontWeight="800"
+            fontFamily="system-ui, -apple-system, sans-serif"
+            style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.35))" }}
+          >
+            {l}
+          </text>
+        ))}
+        <text
+          x="50%"
+          y="88"
+          textAnchor="middle"
+          fill="white"
+          fillOpacity="0.72"
+          fontSize="11"
+          fontWeight="500"
+          fontFamily="system-ui, -apple-system, sans-serif"
+        >
+          {wordCount} كلمة
+        </text>
+      </svg>
+    </div>
+  );
+}
+
 export default function HomePage({
   onCreateQuiz,
   onEditQuiz,
@@ -457,7 +542,7 @@ export default function HomePage({
                       "bg-card border rounded-2xl overflow-hidden transition-all",
                       mergeMode
                         ? "cursor-pointer select-none"
-                        : "hover:shadow-md hover:border-primary/30",
+                        : "hover:shadow-lg hover:border-primary/30",
                       mergeMode && isSelected
                         ? "border-primary ring-2 ring-primary/30"
                         : "border-border",
@@ -466,69 +551,31 @@ export default function HomePage({
                         : ""
                     )}
                   >
-                    <div className="px-4 pt-4 pb-3">
-                      <div className="flex items-start justify-between gap-2">
-                        {mergeMode && (
-                          <div className="flex-shrink-0 mt-0.5">
-                            {isSelected ? (
-                              <CheckSquare size={20} className="text-primary" />
-                            ) : (
-                              <Square size={20} className="text-muted-foreground" />
-                            )}
-                          </div>
-                        )}
-                        {!mergeMode && (
-                          <div
-                            className="flex-shrink-0 mt-0.5 cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground transition-colors touch-none"
-                            title="اسحب لإعادة الترتيب"
-                          >
-                            <GripVertical size={18} />
-                          </div>
-                        )}
+                    {/* Cover banner */}
+                    <div className="relative">
+                      <QuizCover name={quiz.name} quizId={quiz.id} wordCount={quiz.words.length} />
+                      {/* merge checkbox overlay */}
+                      {mergeMode && (
+                        <div className="absolute top-2 right-2">
+                          {isSelected
+                            ? <CheckSquare size={22} className="text-white drop-shadow" />
+                            : <Square size={22} className="text-white/80 drop-shadow" />}
+                        </div>
+                      )}
+                      {/* drag handle overlay */}
+                      {!mergeMode && (
+                        <div
+                          className="absolute top-2 left-2 cursor-grab active:cursor-grabbing text-white/60 hover:text-white transition-colors touch-none"
+                          title="اسحب لإعادة الترتيب"
+                        >
+                          <GripVertical size={18} />
+                        </div>
+                      )}
+                    </div>
 
-                        <h3 className="font-bold text-foreground text-base leading-tight flex-1 min-w-0 truncate">
-                          {quiz.name}
-                        </h3>
-
-                        {!mergeMode && (
-                          <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
-                            <ActionButton onClick={() => handleShare(quiz)} title="مشاركة" active={copied === quiz.id}>
-                              {copied === quiz.id ? <Check size={14} /> : <Share2 size={14} />}
-                            </ActionButton>
-                            <ActionButton onClick={() => onEditQuiz(quiz)} title="تعديل">
-                              <Edit size={14} />
-                            </ActionButton>
-                            <ActionButton
-                              onClick={() => setHistoryQuiz(quiz)}
-                              title="النتائج السابقة"
-                              badge={resultCount > 0 ? resultCount : undefined}
-                            >
-                              <History size={14} />
-                            </ActionButton>
-                            <ActionButton onClick={() => setDeleteTargetId(quiz.id)} title="حذف" danger>
-                              <Trash2 size={14} />
-                            </ActionButton>
-                            <button
-                              onClick={() => onFlashcards(quiz)}
-                              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border bg-card hover:bg-accent transition-colors text-sm font-semibold mr-1"
-                            >
-                              <BookOpen size={13} />
-                              حفظ
-                            </button>
-                            <button
-                              onClick={() => onStartQuiz(quiz)}
-                              className="btn-primary-glow flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all text-sm font-bold shadow-sm"
-                            >
-                              <Play size={13} fill="currentColor" />
-                              ابدأ
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground flex-wrap">
-                        <span className="font-medium">{quiz.words.length} كلمة</span>
-                        <span className="text-border">•</span>
+                    {/* Card body — metadata + last result */}
+                    <div className="px-4 pt-3 pb-3">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                         <span>{quiz.settings.type === "mcq" ? "اختيار متعدد" : "مقالي"}</span>
                         <span className="text-border">•</span>
                         <span>{new Date(quiz.updatedAt).toLocaleDateString("ar")}</span>
@@ -536,7 +583,7 @@ export default function HomePage({
 
                       {lastResult && (
                         <div className={cn(
-                          "mt-2.5 inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 border text-xs font-semibold",
+                          "mt-2 inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 border text-xs font-semibold",
                           scoreBg
                         )}>
                           <Zap size={11} className={scoreColor} />
@@ -549,34 +596,80 @@ export default function HomePage({
                       )}
                     </div>
 
+                    {/* Desktop action bar */}
+                    {!mergeMode && (
+                      <div className="hidden sm:flex items-center gap-1.5 border-t border-border/60 px-3 py-2">
+                        {/* Primary actions — RIGHT (start in RTL) */}
+                        <button
+                          onClick={() => onStartQuiz(quiz)}
+                          className="btn-primary-glow flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all text-sm font-bold shadow-sm"
+                        >
+                          <Play size={13} fill="currentColor" />
+                          ابدأ
+                        </button>
+                        <button
+                          onClick={() => onFlashcards(quiz)}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border bg-card hover:bg-accent transition-colors text-sm font-semibold"
+                        >
+                          <BookOpen size={13} />
+                          حفظ
+                        </button>
+
+                        <div className="flex-1" />
+
+                        {/* Secondary actions */}
+                        <ActionButton
+                          onClick={() => setHistoryQuiz(quiz)}
+                          title="النتائج السابقة"
+                          badge={resultCount > 0 ? resultCount : undefined}
+                        >
+                          <History size={14} />
+                        </ActionButton>
+                        <ActionButton onClick={() => handleShare(quiz)} title="مشاركة" active={copied === quiz.id}>
+                          {copied === quiz.id ? <Check size={14} /> : <Share2 size={14} />}
+                        </ActionButton>
+                        <ActionButton onClick={() => onEditQuiz(quiz)} title="تعديل">
+                          <Edit size={14} />
+                        </ActionButton>
+
+                        {/* Delete — far LEFT (end in RTL) */}
+                        <ActionButton onClick={() => setDeleteTargetId(quiz.id)} title="حذف" danger>
+                          <Trash2 size={14} />
+                        </ActionButton>
+                      </div>
+                    )}
+
+                    {/* Mobile action bar */}
                     {!mergeMode && (
                       <div className="sm:hidden flex items-center border-t border-border/60 divide-x divide-x-reverse divide-border/60">
+                        {/* ابدأ — far RIGHT (start in RTL) */}
+                        <button
+                          onClick={() => onStartQuiz(quiz)}
+                          className="flex-[2] flex items-center justify-center gap-2 py-3 bg-primary text-primary-foreground hover:opacity-90 transition-opacity font-bold text-sm"
+                        >
+                          <Play size={15} fill="currentColor" />
+                          ابدأ
+                        </button>
+                        <button
+                          onClick={() => onFlashcards(quiz)}
+                          className="flex-[1.5] flex items-center justify-center gap-2 py-3 bg-card hover:bg-accent transition-colors font-semibold text-sm text-foreground"
+                        >
+                          <BookOpen size={15} />
+                          حفظ
+                        </button>
+                        <MobileAction onClick={() => setHistoryQuiz(quiz)} badge={resultCount > 0 ? resultCount : undefined}>
+                          <History size={15} />
+                        </MobileAction>
                         <MobileAction onClick={() => handleShare(quiz)} active={copied === quiz.id}>
                           {copied === quiz.id ? <Check size={15} /> : <Share2 size={15} />}
                         </MobileAction>
                         <MobileAction onClick={() => onEditQuiz(quiz)}>
                           <Edit size={15} />
                         </MobileAction>
-                        <MobileAction onClick={() => setHistoryQuiz(quiz)} badge={resultCount > 0 ? resultCount : undefined}>
-                          <History size={15} />
-                        </MobileAction>
+                        {/* Delete — far LEFT (end in RTL) */}
                         <MobileAction onClick={() => setDeleteTargetId(quiz.id)} danger>
                           <Trash2 size={15} />
                         </MobileAction>
-                        <button
-                          onClick={() => onFlashcards(quiz)}
-                          className="flex-1 flex items-center justify-center gap-2 py-3 border-r border-border/60 bg-card hover:bg-accent transition-colors font-semibold text-sm text-foreground"
-                        >
-                          <BookOpen size={15} />
-                          حفظ
-                        </button>
-                        <button
-                          onClick={() => onStartQuiz(quiz)}
-                          className="flex-1 flex items-center justify-center gap-2 py-3 bg-primary text-primary-foreground hover:opacity-90 transition-opacity font-bold text-sm"
-                        >
-                          <Play size={15} fill="currentColor" />
-                          ابدأ
-                        </button>
                       </div>
                     )}
                   </motion.div>
