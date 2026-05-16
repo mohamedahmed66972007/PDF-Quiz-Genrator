@@ -72,59 +72,75 @@ const cardVariants = {
   }),
 };
 
-const COVER_GRADIENTS = [
-  { from: "#6366f1", to: "#8b5cf6" },
-  { from: "#3b82f6", to: "#0ea5e9" },
-  { from: "#10b981", to: "#06b6d4" },
-  { from: "#f59e0b", to: "#ef4444" },
-  { from: "#ec4899", to: "#8b5cf6" },
-  { from: "#14b8a6", to: "#3b82f6" },
-  { from: "#f97316", to: "#eab308" },
-  { from: "#0f172a", to: "#1e40af" },
-];
+const COLOR_HUES: Record<ThemeColor, number> = {
+  blue: 221,
+  violet: 262,
+  green: 142,
+  orange: 25,
+  red: 4,
+  yellow: 45,
+  teal: 174,
+  pink: 330,
+};
 
-function hashStr(str: string): number {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
+function QuizCover({
+  name,
+  quizId,
+  wordCount,
+  index,
+  total,
+  themeColor,
+}: {
+  name: string;
+  quizId: string;
+  wordCount: number;
+  index: number;
+  total: number;
+  themeColor: ThemeColor;
+}) {
+  const hue = COLOR_HUES[themeColor];
+  const t = total > 1 ? index / (total - 1) : 0;
+  const wave = Math.sin(t * Math.PI);
+  const baseL = Math.round(62 - wave * 22);
+  const fromL = Math.min(baseL + 10, 78);
+  const toL = Math.max(baseL - 10, 28);
+  const sat = 78;
+  const fromColor = `hsl(${hue}, ${sat}%, ${fromL}%)`;
+  const toColor = `hsl(${hue + 15}, ${sat + 5}%, ${toL}%)`;
 
-function QuizCover({ name, quizId, wordCount }: { name: string; quizId: string; wordCount: number }) {
-  const idx = hashStr(quizId) % COVER_GRADIENTS.length;
-  const grad = COVER_GRADIENTS[idx];
   const gid = `g${quizId.replace(/\W/g, "").slice(0, 12)}`;
   const pid = `p${gid}`;
+  const H = 120;
 
   const lines: string[] = [];
   const words = name.split(/\s+/);
   let line = "";
   for (const w of words) {
     const test = line ? `${line} ${w}` : w;
-    if (test.length > 18 && line) { lines.push(line); line = w; }
+    if (test.length > 16 && line) { lines.push(line); line = w; }
     else line = test;
   }
   if (line) lines.push(line);
-  const totalLines = lines.length;
-  const lineHeight = 26;
-  const blockH = totalLines * lineHeight;
-  const startY = (96 - blockH) / 2 + lineHeight * 0.75;
+  const lineHeight = 24;
+  const blockH = lines.length * lineHeight;
+  const startY = (H - blockH) / 2 + lineHeight * 0.78;
 
   return (
-    <div className="w-full h-24 relative overflow-hidden rounded-t-2xl">
-      <svg width="100%" height="96" xmlns="http://www.w3.org/2000/svg" className="absolute inset-0">
+    <div className="w-full relative overflow-hidden rounded-t-2xl" style={{ height: H }}>
+      <svg width="100%" height={H} xmlns="http://www.w3.org/2000/svg" className="absolute inset-0">
         <defs>
           <linearGradient id={gid} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={grad.from} />
-            <stop offset="100%" stopColor={grad.to} />
+            <stop offset="0%" stopColor={fromColor} />
+            <stop offset="100%" stopColor={toColor} />
           </linearGradient>
-          <pattern id={pid} x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse">
-            <circle cx="2" cy="2" r="1.2" fill="white" fillOpacity="0.1" />
+          <pattern id={pid} x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+            <circle cx="2" cy="2" r="1" fill="white" fillOpacity="0.09" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill={`url(#${gid})`} />
         <rect width="100%" height="100%" fill={`url(#${pid})`} />
-        <circle cx="92%" cy="18%" r="72" fill="white" fillOpacity="0.05" />
-        <circle cx="4%" cy="85%" r="52" fill="white" fillOpacity="0.05" />
+        <circle cx="88%" cy="15%" r="70" fill="white" fillOpacity="0.06" />
+        <circle cx="5%" cy="88%" r="48" fill="white" fillOpacity="0.05" />
         {lines.map((l, li) => (
           <text
             key={li}
@@ -132,21 +148,21 @@ function QuizCover({ name, quizId, wordCount }: { name: string; quizId: string; 
             y={startY + li * lineHeight}
             textAnchor="middle"
             fill="white"
-            fontSize="18"
+            fontSize="17"
             fontWeight="800"
             fontFamily="system-ui, -apple-system, sans-serif"
-            style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.35))" }}
+            style={{ filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.4))" }}
           >
             {l}
           </text>
         ))}
         <text
           x="50%"
-          y="88"
+          y={H - 10}
           textAnchor="middle"
           fill="white"
-          fillOpacity="0.72"
-          fontSize="11"
+          fillOpacity="0.7"
+          fontSize="10"
           fontWeight="500"
           fontFamily="system-ui, -apple-system, sans-serif"
         >
@@ -503,7 +519,7 @@ export default function HomePage({
           </motion.div>
         ) : (
           <>
-            <div className="grid gap-3 sm:gap-4 mt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mt-2">
               {quizzes.map((quiz, i) => {
                 const results = loadResultsByQuizId(quiz.id);
                 const lastResult = results[0];
@@ -553,7 +569,14 @@ export default function HomePage({
                   >
                     {/* Cover banner */}
                     <div className="relative">
-                      <QuizCover name={quiz.name} quizId={quiz.id} wordCount={quiz.words.length} />
+                      <QuizCover
+                        name={quiz.name}
+                        quizId={quiz.id}
+                        wordCount={quiz.words.length}
+                        index={i}
+                        total={quizzes.length}
+                        themeColor={theme.color}
+                      />
                       {/* merge checkbox overlay */}
                       {mergeMode && (
                         <div className="absolute top-2 right-2">
