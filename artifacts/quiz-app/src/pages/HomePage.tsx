@@ -72,96 +72,84 @@ const cardVariants = {
   }),
 };
 
-const COLOR_HUES: Record<ThemeColor, number> = {
-  blue: 221,
-  violet: 262,
-  green: 142,
-  orange: 25,
-  red: 4,
-  yellow: 45,
-  teal: 174,
-  pink: 330,
-};
+const COVER_PALETTES = [
+  { a: "#4f46e5", b: "#7c3aed" },
+  { a: "#0ea5e9", b: "#2563eb" },
+  { a: "#059669", b: "#0d9488" },
+  { a: "#dc2626", b: "#db2777" },
+  { a: "#d97706", b: "#ea580c" },
+  { a: "#7c3aed", b: "#db2777" },
+  { a: "#0891b2", b: "#0f766e" },
+  { a: "#b45309", b: "#92400e" },
+];
 
 function QuizCover({
   name,
   quizId,
   wordCount,
   index,
-  total,
-  themeColor,
 }: {
   name: string;
   quizId: string;
   wordCount: number;
   index: number;
-  total: number;
-  themeColor: ThemeColor;
 }) {
-  const hue = COLOR_HUES[themeColor];
-  const t = total > 1 ? index / (total - 1) : 0;
-  const wave = Math.sin(t * Math.PI);
-  const baseL = Math.round(62 - wave * 22);
-  const fromL = Math.min(baseL + 10, 78);
-  const toL = Math.max(baseL - 10, 28);
-  const sat = 78;
-  const fromColor = `hsl(${hue}, ${sat}%, ${fromL}%)`;
-  const toColor = `hsl(${hue + 15}, ${sat + 5}%, ${toL}%)`;
-
+  const palette = COVER_PALETTES[index % COVER_PALETTES.length];
   const gid = `g${quizId.replace(/\W/g, "").slice(0, 12)}`;
   const pid = `p${gid}`;
-  const H = 120;
+  const H = 130;
 
   const lines: string[] = [];
-  const words = name.split(/\s+/);
+  const wds = name.split(/\s+/);
   let line = "";
-  for (const w of words) {
+  for (const w of wds) {
     const test = line ? `${line} ${w}` : w;
     if (test.length > 16 && line) { lines.push(line); line = w; }
     else line = test;
   }
   if (line) lines.push(line);
-  const lineHeight = 24;
-  const blockH = lines.length * lineHeight;
-  const startY = (H - blockH) / 2 + lineHeight * 0.78;
+  const lineH = 26;
+  const blockH = lines.length * lineH;
+  const startY = (H - blockH) / 2 + lineH * 0.8;
 
   return (
     <div className="w-full relative overflow-hidden rounded-t-2xl" style={{ height: H }}>
       <svg width="100%" height={H} xmlns="http://www.w3.org/2000/svg" className="absolute inset-0">
         <defs>
           <linearGradient id={gid} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={fromColor} />
-            <stop offset="100%" stopColor={toColor} />
+            <stop offset="0%" stopColor={palette.a} />
+            <stop offset="100%" stopColor={palette.b} />
           </linearGradient>
-          <pattern id={pid} x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
-            <circle cx="2" cy="2" r="1" fill="white" fillOpacity="0.09" />
+          <pattern id={pid} x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+            <circle cx="2" cy="2" r="1.2" fill="white" fillOpacity="0.08" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill={`url(#${gid})`} />
         <rect width="100%" height="100%" fill={`url(#${pid})`} />
-        <circle cx="88%" cy="15%" r="70" fill="white" fillOpacity="0.06" />
-        <circle cx="5%" cy="88%" r="48" fill="white" fillOpacity="0.05" />
+        <circle cx="92%" cy="-10%" r="90" fill="white" fillOpacity="0.06" />
+        <circle cx="-4%" cy="110%" r="70" fill="white" fillOpacity="0.05" />
+        <circle cx="50%" cy="50%" r="120" fill="white" fillOpacity="0.03" />
         {lines.map((l, li) => (
           <text
             key={li}
             x="50%"
-            y={startY + li * lineHeight}
+            y={startY + li * lineH}
             textAnchor="middle"
             fill="white"
-            fontSize="17"
-            fontWeight="800"
+            fontSize="18"
+            fontWeight="900"
             fontFamily="system-ui, -apple-system, sans-serif"
-            style={{ filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.4))" }}
+            style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.45))" }}
           >
             {l}
           </text>
         ))}
         <text
           x="50%"
-          y={H - 10}
+          y={H - 9}
           textAnchor="middle"
           fill="white"
-          fillOpacity="0.7"
+          fillOpacity="0.65"
           fontSize="10"
           fontWeight="500"
           fontFamily="system-ui, -apple-system, sans-serif"
@@ -574,8 +562,6 @@ export default function HomePage({
                         quizId={quiz.id}
                         wordCount={quiz.words.length}
                         index={i}
-                        total={quizzes.length}
-                        themeColor={theme.color}
                       />
                       {/* merge checkbox overlay */}
                       {mergeMode && (
@@ -619,80 +605,77 @@ export default function HomePage({
                       )}
                     </div>
 
-                    {/* Desktop action bar */}
+                    {/* Unified action bar */}
                     {!mergeMode && (
-                      <div className="hidden sm:flex items-center gap-1.5 border-t border-border/60 px-3 py-2">
-                        {/* Primary actions — RIGHT (start in RTL) */}
+                      <div className="flex items-center border-t border-border/60">
+                        {/* ابدأ — RIGHT (start in RTL), takes most space */}
                         <button
                           onClick={() => onStartQuiz(quiz)}
-                          className="btn-primary-glow flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all text-sm font-bold shadow-sm"
+                          className="btn-primary-glow flex items-center justify-center gap-1.5 flex-1 py-3 bg-primary text-primary-foreground hover:opacity-90 transition-opacity font-bold text-sm"
                         >
-                          <Play size={13} fill="currentColor" />
+                          <Play size={14} fill="currentColor" />
                           ابدأ
                         </button>
+
+                        {/* Divider */}
+                        <div className="w-px h-10 bg-border/60" />
+
+                        {/* حفظ */}
                         <button
                           onClick={() => onFlashcards(quiz)}
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border bg-card hover:bg-accent transition-colors text-sm font-semibold"
+                          title="حفظ"
+                          className="flex items-center justify-center w-11 h-11 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                         >
-                          <BookOpen size={13} />
-                          حفظ
+                          <BookOpen size={16} />
                         </button>
 
-                        <div className="flex-1" />
+                        {/* History */}
+                        <div className="relative">
+                          <button
+                            onClick={() => setHistoryQuiz(quiz)}
+                            title="النتائج السابقة"
+                            className="flex items-center justify-center w-11 h-11 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                          >
+                            <History size={16} />
+                          </button>
+                          {resultCount > 0 && (
+                            <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center pointer-events-none">
+                              {resultCount > 9 ? "9+" : resultCount}
+                            </span>
+                          )}
+                        </div>
 
-                        {/* Secondary actions */}
-                        <ActionButton
-                          onClick={() => setHistoryQuiz(quiz)}
-                          title="النتائج السابقة"
-                          badge={resultCount > 0 ? resultCount : undefined}
+                        {/* Share */}
+                        <button
+                          onClick={() => handleShare(quiz)}
+                          title="مشاركة"
+                          className={cn(
+                            "flex items-center justify-center w-11 h-11 transition-colors",
+                            copied === quiz.id
+                              ? "text-green-500"
+                              : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                          )}
                         >
-                          <History size={14} />
-                        </ActionButton>
-                        <ActionButton onClick={() => handleShare(quiz)} title="مشاركة" active={copied === quiz.id}>
-                          {copied === quiz.id ? <Check size={14} /> : <Share2 size={14} />}
-                        </ActionButton>
-                        <ActionButton onClick={() => onEditQuiz(quiz)} title="تعديل">
-                          <Edit size={14} />
-                        </ActionButton>
+                          {copied === quiz.id ? <Check size={16} /> : <Share2 size={16} />}
+                        </button>
+
+                        {/* Edit */}
+                        <button
+                          onClick={() => onEditQuiz(quiz)}
+                          title="تعديل"
+                          className="flex items-center justify-center w-11 h-11 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                        >
+                          <Edit size={16} />
+                        </button>
 
                         {/* Delete — far LEFT (end in RTL) */}
-                        <ActionButton onClick={() => setDeleteTargetId(quiz.id)} title="حذف" danger>
-                          <Trash2 size={14} />
-                        </ActionButton>
-                      </div>
-                    )}
-
-                    {/* Mobile action bar */}
-                    {!mergeMode && (
-                      <div className="sm:hidden flex items-center border-t border-border/60 divide-x divide-x-reverse divide-border/60">
-                        {/* ابدأ — far RIGHT (start in RTL) */}
                         <button
-                          onClick={() => onStartQuiz(quiz)}
-                          className="flex-[2] flex items-center justify-center gap-2 py-3 bg-primary text-primary-foreground hover:opacity-90 transition-opacity font-bold text-sm"
+                          onClick={() => setDeleteTargetId(quiz.id)}
+                          title="حذف"
+                          className="flex items-center justify-center w-11 h-11 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                         >
-                          <Play size={15} fill="currentColor" />
-                          ابدأ
+                          <Trash2 size={16} />
                         </button>
-                        <button
-                          onClick={() => onFlashcards(quiz)}
-                          className="flex-[1.5] flex items-center justify-center gap-2 py-3 bg-card hover:bg-accent transition-colors font-semibold text-sm text-foreground"
-                        >
-                          <BookOpen size={15} />
-                          حفظ
-                        </button>
-                        <MobileAction onClick={() => setHistoryQuiz(quiz)} badge={resultCount > 0 ? resultCount : undefined}>
-                          <History size={15} />
-                        </MobileAction>
-                        <MobileAction onClick={() => handleShare(quiz)} active={copied === quiz.id}>
-                          {copied === quiz.id ? <Check size={15} /> : <Share2 size={15} />}
-                        </MobileAction>
-                        <MobileAction onClick={() => onEditQuiz(quiz)}>
-                          <Edit size={15} />
-                        </MobileAction>
-                        {/* Delete — far LEFT (end in RTL) */}
-                        <MobileAction onClick={() => setDeleteTargetId(quiz.id)} danger>
-                          <Trash2 size={15} />
-                        </MobileAction>
                       </div>
                     )}
                   </motion.div>
